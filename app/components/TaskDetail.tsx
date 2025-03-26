@@ -42,7 +42,7 @@ const TaskDetail: React.FC<TaskDetailProps> = ({ task, visible, onClose, onCompl
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-              <MaterialCommunityIcons name="close" size={24} color="#666" />
+              <MaterialCommunityIcons name="close" size={24} color="#CCDEDE" />
             </TouchableOpacity>
             
             <ScrollView showsVerticalScrollIndicator={false}>
@@ -51,7 +51,7 @@ const TaskDetail: React.FC<TaskDetailProps> = ({ task, visible, onClose, onCompl
                   <MaterialCommunityIcons 
                     name={(validIcons[task.iconName as keyof typeof validIcons] || DEFAULT_ICON) as any}
                     size={32} 
-                    color={task.iconColor} 
+                    color={task.iconColor || '#FFD700'} 
                   />
                 </View>
                 
@@ -61,7 +61,7 @@ const TaskDetail: React.FC<TaskDetailProps> = ({ task, visible, onClose, onCompl
                     <MaterialCommunityIcons 
                       name="tag" 
                       size={14} 
-                      color="#666" 
+                      color="#88A5A5" 
                       style={styles.categoryIcon}
                     />
                     <Text style={styles.category}>{task.category}</Text>
@@ -70,7 +70,7 @@ const TaskDetail: React.FC<TaskDetailProps> = ({ task, visible, onClose, onCompl
               </View>
               
               <View style={styles.pointsCard}>
-                <MaterialCommunityIcons name="star" size={24} color="#FFC107" />
+                <MaterialCommunityIcons name="star" size={24} color="#FFD700" />
                 <Text style={styles.pointsText}>{task.points} points</Text>
               </View>
               
@@ -83,7 +83,7 @@ const TaskDetail: React.FC<TaskDetailProps> = ({ task, visible, onClose, onCompl
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>Status</Text>
                   <View style={styles.completedContainer}>
-                    <MaterialCommunityIcons name="check-circle" size={24} color="#4CAF50" />
+                    <MaterialCommunityIcons name="check-circle" size={24} color="#FFD700" />
                     <Text style={styles.completedText}>
                       Completed on {task.completedDate?.toLocaleDateString()}
                     </Text>
@@ -104,7 +104,7 @@ const TaskDetail: React.FC<TaskDetailProps> = ({ task, visible, onClose, onCompl
                 style={styles.completeButton}
                 onPress={handleComplete}
               >
-                <MaterialCommunityIcons name="check-circle" size={20} color="white" />
+                <MaterialCommunityIcons name="check-circle" size={20} color="#1D7373" />
                 <Text style={styles.completeButtonText}>Mark as Completed</Text>
               </TouchableOpacity>
             )}
@@ -120,14 +120,16 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
   },
   modalContainer: {
     width: '90%',
     maxHeight: '80%',
-    backgroundColor: 'white',
+    backgroundColor: '#1D7373',
     borderRadius: 16,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   modalContent: {
     padding: 24,
@@ -159,7 +161,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#FFFFFF',
     marginBottom: 6,
   },
   categoryContainer: {
@@ -171,12 +173,12 @@ const styles = StyleSheet.create({
   },
   category: {
     fontSize: 14,
-    color: '#666',
+    color: '#88A5A5',
   },
   pointsCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF8E1',
+    backgroundColor: 'rgba(255, 215, 0, 0.2)',
     padding: 16,
     borderRadius: 8,
     marginBottom: 20,
@@ -184,7 +186,7 @@ const styles = StyleSheet.create({
   pointsText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#F57C00',
+    color: '#FFD700',
     marginLeft: 8,
   },
   section: {
@@ -193,42 +195,42 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#FFFFFF',
     marginBottom: 8,
   },
   description: {
     fontSize: 16,
-    color: '#555',
+    color: '#CCDEDE',
     lineHeight: 24,
   },
   completedContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E8F5E9',
+    backgroundColor: 'rgba(255, 215, 0, 0.15)',
     padding: 12,
     borderRadius: 8,
   },
   completedText: {
     marginLeft: 8,
-    color: '#2E7D32',
+    color: '#FFD700',
     fontSize: 15,
     fontWeight: '500',
   },
   date: {
     fontSize: 15,
-    color: '#666',
+    color: '#88A5A5',
   },
   completeButton: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#FFD700',
     borderRadius: 8,
     paddingVertical: 14,
     marginTop: 16,
   },
   completeButtonText: {
-    color: 'white',
+    color: '#1D7373',
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 8,

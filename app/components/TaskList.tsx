@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
-import { Task, TaskCategory } from '../types/task.types';
+import { Task } from '../types/task.types';
 import { TaskService } from '../services/task.service';
 import { TaskCard } from './TaskCard';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-
-const categories: TaskCategory[] = ['Energy', 'Water', 'Waste', 'Transport', 'Food', 'Other'];
 
 interface TaskListProps {
   showCompleted?: boolean;
@@ -18,24 +16,15 @@ const TaskList = ({ showCompleted = false, onTaskSelect }: TaskListProps) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<TaskCategory | 'All'>('All');
 
   const loadTasks = async () => {
     if (!currentUser) return;
     
     setLoading(true);
     try {
-      let fetchedTasks: Task[];
-      
-      if (selectedCategory === 'All') {
-        fetchedTasks = showCompleted 
-          ? await TaskService.getCompletedTasks(currentUser.uid)
-          : await TaskService.getAvailableTasks(currentUser.uid);
-      } else {
-        // Get tasks by category and filter by completion status
-        const categoryTasks = await TaskService.getTasksByCategory(currentUser.uid, selectedCategory);
-        fetchedTasks = categoryTasks.filter(task => task.isCompleted === showCompleted);
-      }
+      const fetchedTasks = showCompleted 
+        ? await TaskService.getCompletedTasks(currentUser.uid)
+        : await TaskService.getAvailableTasks(currentUser.uid);
       
       setTasks(fetchedTasks);
       setError(null);
@@ -49,7 +38,7 @@ const TaskList = ({ showCompleted = false, onTaskSelect }: TaskListProps) => {
 
   useEffect(() => {
     loadTasks();
-  }, [currentUser, showCompleted, selectedCategory]);
+  }, [currentUser, showCompleted]);
 
   const handleCompleteTask = async (taskId: string) => {
     if (!currentUser) return;
@@ -63,43 +52,10 @@ const TaskList = ({ showCompleted = false, onTaskSelect }: TaskListProps) => {
     }
   };
 
-  const renderCategoryFilter = () => (
-    <View style={styles.filterContainer}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <TouchableOpacity
-          style={[
-            styles.categoryChip,
-            selectedCategory === 'All' && styles.selectedCategoryChip
-          ]}
-          onPress={() => setSelectedCategory('All')}
-        >
-          <Text style={selectedCategory === 'All' ? styles.selectedCategoryText : styles.categoryText}>
-            All
-          </Text>
-        </TouchableOpacity>
-        
-        {categories.map(category => (
-          <TouchableOpacity
-            key={category}
-            style={[
-              styles.categoryChip,
-              selectedCategory === category && styles.selectedCategoryChip
-            ]}
-            onPress={() => setSelectedCategory(category)}
-          >
-            <Text style={selectedCategory === category ? styles.selectedCategoryText : styles.categoryText}>
-              {category}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-    </View>
-  );
-
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#4CAF50" />
+        <ActivityIndicator size="large" color="#FFD700" />
       </View>
     );
   }
@@ -118,12 +74,11 @@ const TaskList = ({ showCompleted = false, onTaskSelect }: TaskListProps) => {
   if (tasks.length === 0) {
     return (
       <View style={styles.container}>
-        {renderCategoryFilter()}
         <View style={styles.centerContainer}>
           <MaterialCommunityIcons 
             name={showCompleted ? "check-circle-outline" : "clipboard-text-outline"} 
             size={64} 
-            color="#CCCCCC" 
+            color="#88A5A5" 
           />
           <Text style={styles.emptyText}>
             {showCompleted 
@@ -138,8 +93,6 @@ const TaskList = ({ showCompleted = false, onTaskSelect }: TaskListProps) => {
 
   return (
     <View style={styles.container}>
-      {renderCategoryFilter()}
-      
       <FlatList
         data={tasks}
         keyExtractor={(item) => item.id}
@@ -173,44 +126,23 @@ const styles = StyleSheet.create({
   emptyText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#666666',
+    color: '#CCDEDE',
     textAlign: 'center',
   },
   errorText: {
-    color: '#d32f2f',
+    color: '#FFD700',
     fontSize: 16,
     textAlign: 'center',
     marginBottom: 16,
   },
   retryButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#FFD700',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
   },
   retryButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  filterContainer: {
-    marginBottom: 16,
-  },
-  categoryChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#f0f0f0',
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  selectedCategoryChip: {
-    backgroundColor: '#4CAF50',
-  },
-  categoryText: {
-    color: '#666666',
-  },
-  selectedCategoryText: {
-    color: 'white',
+    color: '#1D7373',
     fontWeight: 'bold',
   },
 });

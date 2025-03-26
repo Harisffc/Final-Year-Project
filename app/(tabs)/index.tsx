@@ -17,6 +17,7 @@ export default function TabsIndex() {
   const [activeTab, setActiveTab] = useState<'available' | 'completed'>('available');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isDetailVisible, setIsDetailVisible] = useState(false);
+  const [totalPoints, setTotalPoints] = useState(0);
   
   // Refresh tasks when the screen is loaded
   useEffect(() => {
@@ -31,7 +32,6 @@ export default function TabsIndex() {
   // Calculate progress
   const totalTasks = tasks.length;
   const completedTasks = tasks.filter(task => task.isCompleted).length;
-  const totalPoints = tasks.reduce((sum, task) => sum + task.points, 0);
   const earnedPoints = tasks
     .filter(task => task.isCompleted)
     .reduce((sum, task) => sum + task.points, 0);
@@ -45,11 +45,22 @@ export default function TabsIndex() {
     : 0;
 
   const handleCompleteTask = async (taskId: string) => {
+    if (!currentUser) return;
+    
     try {
-      await completeTask(taskId);
-      Alert.alert('Success', 'Task completed successfully!');
+      await TaskService.completeTask(taskId, currentUser.uid);
+      // Refresh the task list and update points
+      setIsDetailVisible(false);
+      setSelectedTask(null);
+      
+      // Update points after completion
+      const tasks = await TaskService.getUserTasks(currentUser.uid);
+      const points = tasks.reduce((sum, task) => {
+        return sum + (task.isCompleted ? task.points : 0);
+      }, 0);
+      setTotalPoints(points);
     } catch (error) {
-      Alert.alert('Error', 'Failed to complete task. Please try again.');
+      console.error('Error completing task:', error);
     }
   };
 
@@ -77,6 +88,13 @@ export default function TabsIndex() {
       if (currentUser) {
         try {
           const tasks = await TaskService.getUserTasks(currentUser.uid);
+          
+          // Calculate total points
+          const points = tasks.reduce((sum, task) => {
+            return sum + (task.isCompleted ? task.points : 0);
+          }, 0);
+          setTotalPoints(points);
+          
           // If user has no tasks, add sample tasks
           if (tasks.length === 0) {
             await TaskService.createSampleTasks(currentUser.uid);
@@ -135,7 +153,7 @@ export default function TabsIndex() {
           <Text style={styles.subtitle}>Ready to make a difference today?</Text>
         </View>
         <View style={styles.pointsContainer}>
-          <MaterialCommunityIcons name="leaf" size={18} color="#4CAF50" />
+          <MaterialCommunityIcons name="leaf" size={18} color="#FFD700" />
           <Text style={styles.pointsText}>{totalPoints} points</Text>
         </View>
       </View>
@@ -146,7 +164,7 @@ export default function TabsIndex() {
         task={selectedTask}
         visible={isDetailVisible}
         onClose={closeTaskDetails}
-        onComplete={handleCompleteTaskFromList}
+        onComplete={handleCompleteTask}
       />
     </SafeAreaView>
   );
@@ -155,7 +173,7 @@ export default function TabsIndex() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#1D7373',
   },
   centerContent: {
     justifyContent: 'center',
@@ -183,24 +201,25 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: '#fff',
+    paddingTop: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
   greeting: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#FFFFFF',
   },
   subtitle: {
     fontSize: 14,
-    color: '#666',
+    color: '#88A5A5',
     marginTop: 4,
   },
   pointsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E8F5E9',
+    backgroundColor: 'rgba(255, 215, 0, 0.2)',
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 16,
@@ -208,6 +227,6 @@ const styles = StyleSheet.create({
   pointsText: {
     marginLeft: 6,
     fontWeight: '600',
-    color: '#2E7D32',
+    color: '#FFD700',
   },
 });

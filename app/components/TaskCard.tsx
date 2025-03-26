@@ -21,9 +21,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onPress, onComplete })
       <View style={styles.header}>
         <View style={styles.iconContainer}>
           <MaterialCommunityIcons 
-            name={iconName || 'checkbox-marked-circle-outline'} 
+            name={iconName as any || 'checkbox-marked-circle-outline'} 
             size={24} 
-            color={iconColor || '#4CAF50'} 
+            color={iconColor || '#FFD700'} 
           />
         </View>
         <View style={styles.titleContainer}>
@@ -48,14 +48,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onPress, onComplete })
             onComplete();
           }}
         >
-          <MaterialCommunityIcons name="check-circle" size={18} color="white" />
+          <MaterialCommunityIcons name="check-circle" size={18} color="#1D7373" />
           <Text style={styles.completeButtonText}>Complete</Text>
         </TouchableOpacity>
       )}
       
       {isCompleted && (
         <View style={styles.completedBadge}>
-          <MaterialCommunityIcons name="check-circle" size={18} color="white" />
+          <MaterialCommunityIcons name="check-circle" size={18} color="#1D7373" />
           <Text style={styles.completedText}>Completed</Text>
         </View>
       )}
@@ -65,7 +65,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onPress, onComplete })
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: 'white',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
@@ -77,7 +77,9 @@ const styles = StyleSheet.create({
   },
   completedCard: {
     opacity: 0.8,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderLeftWidth: 4,
+    borderLeftColor: '#FFD700',
   },
   header: {
     flexDirection: 'row',
@@ -93,45 +95,45 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#FFFFFF',
   },
   category: {
     fontSize: 12,
-    color: '#666',
+    color: '#88A5A5',
     marginTop: 2,
   },
   pointsContainer: {
     alignItems: 'center',
-    backgroundColor: '#E8F5E9',
+    backgroundColor: 'rgba(255, 215, 0, 0.2)',
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
   points: {
     fontWeight: 'bold',
-    color: '#2E7D32',
+    color: '#FFD700',
     fontSize: 14,
   },
   pointsLabel: {
     fontSize: 10,
-    color: '#2E7D32',
+    color: '#FFD700',
   },
   description: {
     fontSize: 14,
-    color: '#666',
+    color: '#CCDEDE',
     marginBottom: 16,
   },
   completeButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#FFD700',
     borderRadius: 8,
     paddingVertical: 8,
     paddingHorizontal: 16,
   },
   completeButtonText: {
-    color: 'white',
+    color: '#1D7373',
     fontWeight: '600',
     marginLeft: 8,
   },
@@ -139,13 +141,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#8BC34A',
+    backgroundColor: 'rgba(255, 215, 0, 0.3)',
     borderRadius: 8,
     paddingVertical: 8,
     paddingHorizontal: 16,
   },
   completedText: {
-    color: 'white',
+    color: '#FFD700',
     fontWeight: '600',
     marginLeft: 8,
   },
