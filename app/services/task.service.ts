@@ -21,6 +21,8 @@ import {
 import { db } from '../config/firebase';
 import { Task, TaskCategory, UserTaskProgress } from '../types/task.types';
 import NetInfo from '@react-native-community/netinfo';
+import { UserService } from './user.service';
+import { AchievementService } from './achievement.service';
 
 // Initialize offline persistence
 try {
@@ -335,8 +337,8 @@ export const TaskService = {
       // Update task status
       await updateDoc(taskRef, {
         isCompleted: true,
-        completedDate: new Date(),
-        updatedAt: new Date()
+        completedDate: Timestamp.now(),
+        updatedAt: Timestamp.now()
       });
 
       // Update user progress
@@ -349,7 +351,7 @@ export const TaskService = {
           totalTasksCompleted: increment(1),
           totalPointsEarned: increment(task.points),
           [`taskCompletionsByCategory.${task.category}`]: increment(1),
-          updatedAt: new Date()
+          updatedAt: Timestamp.now()
         });
       } else {
         // Create new progress document
@@ -368,9 +370,43 @@ export const TaskService = {
         await setDoc(progressRef, {
           ...newProgress,
           userId,
-          createdAt: new Date(),
-          updatedAt: new Date()
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now()
         });
+      }
+
+      // Update user statistics
+      try {
+        // Update user's eco points and task completion counts
+        await UserService.updateEcoPoints(userId, task.points);
+        await UserService.incrementTaskCompletion(userId, task.category);
+      } catch (error) {
+        console.error('Error updating user stats:', error);
+      }
+
+      // Update achievements
+      try {
+        // Check for newly unlocked achievements
+        const newlyUnlocked = await AchievementService.onTaskCompleted(userId, task.category);
+        
+        // Log newly unlocked achievements (for debugging)
+        if (newlyUnlocked.length > 0) {
+          console.log('Newly unlocked achievements:', newlyUnlocked.map(a => a.title));
+        }
+      } catch (error) {
+        console.error('Error updating achievements:', error);
+      }
+
+      // Invalidate cache for this user to force refresh
+      const cacheKey = `user_${userId}`;
+      if (cachedAvailableTasks[cacheKey]) {
+        cachedAvailableTasks[cacheKey] = cachedAvailableTasks[cacheKey].filter(t => t.id !== taskId);
+      }
+      
+      // Optional: Move the completed task to the completed tasks cache
+      if (cachedCompletedTasks[cacheKey]) {
+        const completedTask = { ...task, id: taskId, isCompleted: true, completedDate: new Date() };
+        cachedCompletedTasks[cacheKey] = [completedTask, ...cachedCompletedTasks[cacheKey]];
       }
     } catch (error) {
       console.error('Error completing task:', error);

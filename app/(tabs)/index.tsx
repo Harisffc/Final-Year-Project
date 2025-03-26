@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator
 import { Camera, Bike, ShoppingBag, X } from 'lucide-react-native';
 import { useTask } from '../contexts/TaskContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useAchievements } from '../contexts/AchievementContext';
 import { TaskCard } from '../components/TaskCard';
 import { Task, TaskCategory } from '../types/task.types';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,6 +18,7 @@ import NetInfo from '@react-native-community/netinfo';
 export default function TabsIndex() {
   const { tasks, loading, error, completeTask, refreshTasks } = useTask();
   const { currentUser } = useAuth();
+  const { checkForNewAchievements } = useAchievements();
   const [activeTab, setActiveTab] = useState<'available' | 'completed'>('available');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isDetailVisible, setIsDetailVisible] = useState(false);
@@ -71,6 +73,15 @@ export default function TabsIndex() {
     }, [currentUser])
   );
   
+  // Check for achievements when the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (currentUser) {
+        checkForNewAchievements();
+      }
+    }, [currentUser, checkForNewAchievements])
+  );
+  
   // Filter tasks based on active tab
   const filteredTasks = tasks.filter(task => 
     activeTab === 'available' ? !task.isCompleted : task.isCompleted
@@ -105,6 +116,9 @@ export default function TabsIndex() {
       if (userProgress) {
         setTotalPoints(userProgress.totalPointsEarned);
       }
+      
+      // Check for newly unlocked achievements
+      await checkForNewAchievements();
     } catch (error) {
       console.error('Error completing task:', error);
     }
@@ -142,6 +156,9 @@ export default function TabsIndex() {
       // Refresh the task list
       setIsDetailVisible(false);
       setSelectedTask(null);
+      
+      // Check for new achievements
+      await checkForNewAchievements();
     } catch (error) {
       console.error('Error completing task:', error);
     }

@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Chrome as Home, Trophy, ChartBar as BarChart2, LogIn } from 'lucide-react-native';
+import { Chrome as Home, Trophy, ChartBar as BarChart2, LogIn, Award } from 'lucide-react-native';
 
 export default function TabLayout() {
   return (
@@ -20,6 +20,13 @@ export default function TabLayout() {
         options={{
           title: 'Tasks',
           tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="achievements"
+        options={{
+          title: 'Achievements',
+          tabBarIcon: ({ color, size }) => <Award size={size} color={color} />,
         }}
       />
       <Tabs.Screen
