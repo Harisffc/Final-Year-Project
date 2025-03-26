@@ -11,6 +11,8 @@ import TaskList from '../components/TaskList';
 import TaskDetail from '../components/TaskDetail';
 import { TaskService } from '../services/task.service';
 import { useFocusEffect } from 'expo-router';
+import OfflineNotice from '../components/OfflineNotice';
+import NetInfo from '@react-native-community/netinfo';
 
 export default function TabsIndex() {
   const { tasks, loading, error, completeTask, refreshTasks } = useTask();
@@ -20,6 +22,8 @@ export default function TabsIndex() {
   const [isDetailVisible, setIsDetailVisible] = useState(false);
   const [totalPoints, setTotalPoints] = useState(0);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [networkError, setNetworkError] = useState(false);
   
   // Load tasks when screen is focused
   useFocusEffect(
@@ -28,6 +32,15 @@ export default function TabsIndex() {
         if (!currentUser) return;
         
         try {
+          setNetworkError(false);
+          
+          // Check if connected
+          const networkState = await NetInfo.fetch();
+          if (networkState.isConnected !== true) {
+            console.log('Device is offline during initial load');
+            setNetworkError(true);
+          }
+          
           // Just check if user has tasks first before fetching all of them
           const query = await TaskService.hasAnyTasks(currentUser.uid);
           
@@ -44,6 +57,7 @@ export default function TabsIndex() {
           
         } catch (error) {
           console.error('Error checking tasks:', error);
+          setNetworkError(true);
         } finally {
           setInitialLoading(false);
         }
@@ -133,6 +147,25 @@ export default function TabsIndex() {
     }
   };
 
+  const handleRetryConnection = async () => {
+    setIsRefreshing(true);
+    try {
+      const networkState = await NetInfo.fetch();
+      if (networkState.isConnected === true) {
+        setNetworkError(false);
+        // Try to get data again
+        const userProgress = await TaskService.getUserProgress(currentUser?.uid || '');
+        if (userProgress) {
+          setTotalPoints(userProgress.totalPointsEarned);
+        }
+      }
+    } catch (error) {
+      console.error('Error retrying connection:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   if (initialLoading) {
     return (
       <View style={[styles.container, styles.centerContainer]}>
@@ -162,6 +195,8 @@ export default function TabsIndex() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <OfflineNotice onRetry={handleRetryConnection} />
+      
       <View style={styles.header}>
         <View>
           <Text style={styles.greeting}>Hello, {currentUser?.displayName || 'Eco Warrior'}</Text>
@@ -173,7 +208,18 @@ export default function TabsIndex() {
         </View>
       </View>
       
-      <TaskList onTaskSelect={handleTaskSelect} />
+      {isRefreshing ? (
+        <View style={styles.refreshingContainer}>
+          <ActivityIndicator size="small" color="#FFD700" />
+          <Text style={styles.refreshingText}>Syncing data...</Text>
+        </View>
+      ) : null}
+      
+      <TaskList 
+        onTaskSelect={handleTaskSelect} 
+        showNetworkError={networkError}
+        onRetry={handleRetryConnection}
+      />
       
       <TaskDetail
         task={selectedTask}
@@ -247,5 +293,17 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     fontWeight: '600',
     color: '#FFD700',
+  },
+  refreshingContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  refreshingText: {
+    marginLeft: 8,
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
   },
 });

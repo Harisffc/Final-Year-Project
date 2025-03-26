@@ -13,10 +13,28 @@ import {
   limit,
   getDoc,
   increment,
-  setDoc
+  setDoc,
+  enableNetwork,
+  disableNetwork,
+  enableIndexedDbPersistence
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { Task, TaskCategory, UserTaskProgress } from '../types/task.types';
+import NetInfo from '@react-native-community/netinfo';
+
+// Initialize offline persistence
+try {
+  enableIndexedDbPersistence(db)
+    .then(() => console.log('Offline persistence initialized'))
+    .catch((error) => {
+      // Only log the error if it's not the "already initialized" error
+      if (error.code !== 'failed-precondition') {
+        console.error('Error enabling offline persistence:', error);
+      }
+    });
+} catch (error) {
+  console.error('Error setting up persistence:', error);
+}
 
 const COLLECTION_NAME = 'tasks';
 
@@ -32,21 +50,85 @@ interface TimestampMap {
 let cachedAvailableTasks: CacheMap = {};
 let cachedCompletedTasks: CacheMap = {};
 let lastFetchTime: TimestampMap = {};
+let isOffline = false;
+
+// Function to check network status and update Firestore accordingly
+const checkNetworkStatus = async (): Promise<boolean> => {
+  try {
+    const state = await NetInfo.fetch();
+    const isConnected = state.isConnected === true;
+    
+    // If network state changed
+    if (isConnected !== !isOffline) {
+      if (isConnected) {
+        console.log('Device is online, enabling Firestore network');
+        await enableNetwork(db);
+        isOffline = false;
+      } else {
+        console.log('Device is offline, disabling Firestore network');
+        await disableNetwork(db);
+        isOffline = true;
+      }
+    }
+    
+    return isConnected;
+  } catch (error) {
+    console.error('Error checking network status:', error);
+    return false;
+  }
+};
+
+// Add network status listener
+NetInfo.addEventListener((state: any) => {
+  const isConnected = state.isConnected === true;
+  if (isConnected && isOffline) {
+    console.log('App is back online, enabling Firestore network');
+    enableNetwork(db)
+      .then(() => {
+        isOffline = false;
+      })
+      .catch(error => {
+        console.error('Error enabling network:', error);
+      });
+  } else if (!isConnected && !isOffline) {
+    console.log('App is offline, disabling Firestore network');
+    disableNetwork(db)
+      .then(() => {
+        isOffline = true;
+      })
+      .catch(error => {
+        console.error('Error disabling network:', error);
+      });
+  }
+});
 
 export const TaskService = {
   // Get all tasks for a user
   getUserTasks: async (userId: string, forceRefresh = false): Promise<Task[]> => {
     try {
+      // Check network status first
+      await checkNetworkStatus();
+      
       // Create cache keys
       const cacheKey = `user_${userId}`;
       const currentTime = Date.now();
       
-      // Check if we have a recent cache (within 5 minutes) and not forced refresh
-      if (!forceRefresh && 
+      // Use cache if offline or within cache period
+      if ((!forceRefresh && 
           cachedAvailableTasks[cacheKey] && 
           lastFetchTime[cacheKey] && 
-          (currentTime - lastFetchTime[cacheKey] < 5 * 60 * 1000)) {
-        return [...cachedAvailableTasks[cacheKey], ...cachedCompletedTasks[cacheKey]];
+          (currentTime - lastFetchTime[cacheKey] < 5 * 60 * 1000)) || isOffline) {
+        
+        // If we have cache, use it even if offline
+        if (cachedAvailableTasks[cacheKey] && cachedCompletedTasks[cacheKey]) {
+          return [...cachedAvailableTasks[cacheKey], ...cachedCompletedTasks[cacheKey]];
+        }
+        
+        // If offline with no cache, return empty array
+        if (isOffline) {
+          console.log('Device is offline and no cache is available');
+          return [];
+        }
       }
       
       // Fetch all tasks for the user
@@ -75,13 +157,31 @@ export const TaskService = {
       return tasks;
     } catch (error) {
       console.error('Error getting user tasks:', error);
-      throw error;
+      // If there's an error but we have cached data, use it
+      const cacheKey = `user_${userId}`;
+      if (cachedAvailableTasks[cacheKey] && cachedCompletedTasks[cacheKey]) {
+        console.log('Using cached tasks due to error');
+        return [...cachedAvailableTasks[cacheKey], ...cachedCompletedTasks[cacheKey]];
+      }
+      return [];
     }
   },
   
   // Get tasks by category
   getTasksByCategory: async (userId: string, category: TaskCategory): Promise<Task[]> => {
     try {
+      await checkNetworkStatus();
+      
+      // If offline, filter from cache
+      if (isOffline) {
+        const cacheKey = `user_${userId}`;
+        if (cachedAvailableTasks[cacheKey] && cachedCompletedTasks[cacheKey]) {
+          const allTasks = [...cachedAvailableTasks[cacheKey], ...cachedCompletedTasks[cacheKey]];
+          return allTasks.filter(task => task.category === category);
+        }
+        return [];
+      }
+      
       const tasksRef = collection(db, 'tasks');
       const q = query(
         tasksRef,
@@ -97,22 +197,37 @@ export const TaskService = {
       })) as Task[];
     } catch (error) {
       console.error('Error getting tasks by category:', error);
-      throw error;
+      // Try to get from cache on error
+      const cacheKey = `user_${userId}`;
+      if (cachedAvailableTasks[cacheKey] && cachedCompletedTasks[cacheKey]) {
+        const allTasks = [...cachedAvailableTasks[cacheKey], ...cachedCompletedTasks[cacheKey]];
+        return allTasks.filter(task => task.category === category);
+      }
+      return [];
     }
   },
   
   // Get completed tasks
   getCompletedTasks: async (userId: string, forceRefresh = false): Promise<Task[]> => {
     try {
+      await checkNetworkStatus();
+      
       const cacheKey = `user_${userId}`;
       const currentTime = Date.now();
       
-      // Use cache if available and recent
-      if (!forceRefresh && 
+      // Use cache if available and recent or if offline
+      if ((!forceRefresh && 
           cachedCompletedTasks[cacheKey] && 
           lastFetchTime[cacheKey] && 
-          (currentTime - lastFetchTime[cacheKey] < 5 * 60 * 1000)) {
-        return cachedCompletedTasks[cacheKey];
+          (currentTime - lastFetchTime[cacheKey] < 5 * 60 * 1000)) || isOffline) {
+        
+        if (cachedCompletedTasks[cacheKey]) {
+          return cachedCompletedTasks[cacheKey];
+        }
+        
+        if (isOffline) {
+          return [];
+        }
       }
       
       // If we need to fetch
@@ -120,22 +235,36 @@ export const TaskService = {
       return tasks.filter((task: Task) => task.isCompleted);
     } catch (error) {
       console.error('Error getting completed tasks:', error);
-      throw error;
+      // Try to get from cache on error
+      const cacheKey = `user_${userId}`;
+      if (cachedCompletedTasks[cacheKey]) {
+        return cachedCompletedTasks[cacheKey];
+      }
+      return [];
     }
   },
   
   // Get available tasks
   getAvailableTasks: async (userId: string, forceRefresh = false): Promise<Task[]> => {
     try {
+      await checkNetworkStatus();
+      
       const cacheKey = `user_${userId}`;
       const currentTime = Date.now();
       
-      // Use cache if available and recent
-      if (!forceRefresh && 
+      // Use cache if available and recent or if offline
+      if ((!forceRefresh && 
           cachedAvailableTasks[cacheKey] && 
           lastFetchTime[cacheKey] && 
-          (currentTime - lastFetchTime[cacheKey] < 5 * 60 * 1000)) {
-        return cachedAvailableTasks[cacheKey];
+          (currentTime - lastFetchTime[cacheKey] < 5 * 60 * 1000)) || isOffline) {
+        
+        if (cachedAvailableTasks[cacheKey]) {
+          return cachedAvailableTasks[cacheKey];
+        }
+        
+        if (isOffline) {
+          return [];
+        }
       }
       
       // If we need to fetch
@@ -143,7 +272,12 @@ export const TaskService = {
       return tasks.filter((task: Task) => !task.isCompleted);
     } catch (error) {
       console.error('Error getting available tasks:', error);
-      throw error;
+      // Try to get from cache on error
+      const cacheKey = `user_${userId}`;
+      if (cachedAvailableTasks[cacheKey]) {
+        return cachedAvailableTasks[cacheKey];
+      }
+      return [];
     }
   },
   
@@ -345,6 +479,42 @@ export const TaskService = {
 
   getUserProgress: async (userId: string): Promise<UserTaskProgress | null> => {
     try {
+      await checkNetworkStatus();
+      
+      // If offline, calculate from cache
+      if (isOffline) {
+        const cacheKey = `user_${userId}`;
+        if (cachedAvailableTasks[cacheKey] || cachedCompletedTasks[cacheKey]) {
+          // Calculate progress from cached tasks
+          const completedTasks = cachedCompletedTasks[cacheKey] || [];
+          
+          // Calculate points
+          const totalPointsEarned = completedTasks.reduce((sum, task) => sum + task.points, 0);
+          
+          // Count completions by category
+          const taskCompletionsByCategory = {} as Record<TaskCategory, number>;
+          
+          // Initialize all categories to 0
+          ['Energy', 'Water', 'Waste', 'Transport', 'Food', 'Other'].forEach(cat => {
+            taskCompletionsByCategory[cat as TaskCategory] = 0;
+          });
+          
+          // Count completed tasks by category
+          completedTasks.forEach(task => {
+            taskCompletionsByCategory[task.category] = 
+              (taskCompletionsByCategory[task.category] || 0) + 1;
+          });
+          
+          return {
+            userId,
+            totalTasksCompleted: completedTasks.length,
+            totalPointsEarned,
+            taskCompletionsByCategory
+          };
+        }
+        return null;
+      }
+      
       const progressRef = doc(db, 'userProgress', userId);
       const progressDoc = await getDoc(progressRef);
       
@@ -354,13 +524,55 @@ export const TaskService = {
       return null;
     } catch (error) {
       console.error('Error getting user progress:', error);
-      throw error;
+      
+      // If error, try to calculate from cache
+      const cacheKey = `user_${userId}`;
+      if (cachedCompletedTasks[cacheKey]) {
+        const completedTasks = cachedCompletedTasks[cacheKey];
+        const totalPointsEarned = completedTasks.reduce((sum, task) => sum + task.points, 0);
+        
+        // Initialize task completions by category
+        const taskCompletionsByCategory = {} as Record<TaskCategory, number>;
+        ['Energy', 'Water', 'Waste', 'Transport', 'Food', 'Other'].forEach(cat => {
+          taskCompletionsByCategory[cat as TaskCategory] = 0;
+        });
+        
+        // Count completed tasks by category
+        completedTasks.forEach(task => {
+          taskCompletionsByCategory[task.category] = 
+            (taskCompletionsByCategory[task.category] || 0) + 1;
+        });
+        
+        return {
+          userId,
+          totalTasksCompleted: completedTasks.length,
+          totalPointsEarned,
+          taskCompletionsByCategory
+        };
+      }
+      return null;
     }
   },
   
-  // Check if a user has any tasks
+  // Check if a user has any tasks - with offline support
   hasAnyTasks: async (userId: string): Promise<boolean> => {
     try {
+      await checkNetworkStatus();
+      
+      // If offline, check cache
+      if (isOffline) {
+        const cacheKey = `user_${userId}`;
+        if (cachedAvailableTasks[cacheKey] || cachedCompletedTasks[cacheKey]) {
+          const availableCount = cachedAvailableTasks[cacheKey]?.length || 0;
+          const completedCount = cachedCompletedTasks[cacheKey]?.length || 0;
+          return (availableCount + completedCount) > 0;
+        }
+        
+        // If offline with no cache, we cannot determine, so return false
+        // This will likely trigger sample task creation when back online
+        return false;
+      }
+      
       const tasksRef = collection(db, 'tasks');
       const q = query(
         tasksRef,
@@ -372,6 +584,15 @@ export const TaskService = {
       return !snapshot.empty;
     } catch (error) {
       console.error('Error checking if user has tasks:', error);
+      
+      // Check cache as fallback
+      const cacheKey = `user_${userId}`;
+      if (cachedAvailableTasks[cacheKey] || cachedCompletedTasks[cacheKey]) {
+        const availableCount = cachedAvailableTasks[cacheKey]?.length || 0;
+        const completedCount = cachedCompletedTasks[cacheKey]?.length || 0;
+        return (availableCount + completedCount) > 0;
+      }
+      
       return false;
     }
   }

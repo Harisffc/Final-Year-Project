@@ -9,9 +9,11 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 interface TaskListProps {
   showCompleted?: boolean;
   onTaskSelect: (task: Task) => void;
+  showNetworkError?: boolean;
+  onRetry?: () => void;
 }
 
-const TaskList = ({ showCompleted = false, onTaskSelect }: TaskListProps) => {
+const TaskList = ({ showCompleted = false, onTaskSelect, showNetworkError = false, onRetry }: TaskListProps) => {
   const { currentUser } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,11 +62,23 @@ const TaskList = ({ showCompleted = false, onTaskSelect }: TaskListProps) => {
     );
   }
 
-  if (error) {
+  if (error || showNetworkError) {
     return (
       <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={loadTasks}>
+        <MaterialCommunityIcons 
+          name={showNetworkError ? "wifi-off" : "alert-circle"} 
+          size={50} 
+          color="#FFD700" 
+        />
+        <Text style={styles.errorText}>
+          {showNetworkError 
+            ? "Network connection issue. Working in offline mode." 
+            : error}
+        </Text>
+        <TouchableOpacity 
+          style={styles.retryButton} 
+          onPress={onRetry || loadTasks}
+        >
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
       </View>
