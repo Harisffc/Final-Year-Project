@@ -1,54 +1,72 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Leaf, Eye } from 'lucide-react-native';
 import { useAuth } from '../contexts/AuthContext';
 
-export default function LoginScreen() {
+export default function RegisterScreen() {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   
-  const { login } = useAuth();
+  const { register } = useAuth();
   const router = useRouter();
 
-  const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please enter both email and password');
+  const handleRegister = async () => {
+    if (!name || !email || !password || !confirmPassword) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match');
+      return;
+    }
+
+    if (password.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters');
       return;
     }
 
     setLoading(true);
 
     try {
-      const result = await login(email, password);
+      const result = await register(email, password, name);
       
       if ('code' in result) {
-        let errorMessage = 'Failed to sign in';
+        let errorMessage = 'Failed to create account';
         
-        if (result.code === 'auth/invalid-credential') {
-          errorMessage = 'Invalid email or password';
-        } else if (result.code === 'auth/user-not-found') {
-          errorMessage = 'No account exists with this email';
-        } else if (result.code === 'auth/wrong-password') {
-          errorMessage = 'Incorrect password';
+        if (result.code === 'auth/email-already-in-use') {
+          errorMessage = 'Email is already in use';
+        } else if (result.code === 'auth/invalid-email') {
+          errorMessage = 'Invalid email address';
+        } else if (result.code === 'auth/weak-password') {
+          errorMessage = 'Password is too weak';
         }
         
         Alert.alert('Error', errorMessage);
       } else {
-        // Successful login
-        router.replace('/(tabs)');
+        // Successful registration
+        Alert.alert('Success', 'Account created successfully', [
+          {
+            text: 'OK',
+            onPress: () => router.replace('/(tabs)')
+          }
+        ]);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to sign in. Please try again later.');
+      Alert.alert('Error', 'Failed to create account. Please try again later.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       <View style={styles.content}>
         <View style={styles.logoContainer}>
           <View style={styles.logoCircle}>
@@ -56,10 +74,21 @@ export default function LoginScreen() {
           </View>
         </View>
         
-        <Text style={styles.title}>Welcome Back</Text>
-        <Text style={styles.subtitle}>Sign in to continue your eco journey</Text>
+        <Text style={styles.title}>Create Account</Text>
+        <Text style={styles.subtitle}>Join the eco-friendly community</Text>
 
         <View style={styles.form}>
+          <Text style={styles.inputLabel}>Full Name</Text>
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder="John Doe"
+              placeholderTextColor="#88A5A5"
+              value={name}
+              onChangeText={setName}
+            />
+          </View>
+
           <Text style={styles.inputLabel}>Email</Text>
           <View style={styles.inputContainer}>
             <TextInput
@@ -91,27 +120,43 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity style={styles.forgotPasswordContainer}>
-            <Text style={styles.forgotPassword}>Forgot Password?</Text>
-          </TouchableOpacity>
+          <Text style={styles.inputLabel}>Confirm Password</Text>
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder="••••••••"
+              placeholderTextColor="#88A5A5"
+              secureTextEntry={!showConfirmPassword}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+            />
+            <TouchableOpacity 
+              style={styles.eyeIcon} 
+              onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+            >
+              <Eye size={20} color="#88A5A5" />
+            </TouchableOpacity>
+          </View>
 
           <TouchableOpacity 
-            style={[styles.signInButton, loading && styles.signInButtonDisabled]} 
-            onPress={handleLogin}
+            style={[styles.registerButton, loading && styles.registerButtonDisabled]} 
+            onPress={handleRegister}
             disabled={loading}
           >
-            <Text style={styles.signInText}>{loading ? 'Signing In...' : 'Sign In'}</Text>
+            <Text style={styles.registerButtonText}>
+              {loading ? 'Creating Account...' : 'Create Account'}
+            </Text>
           </TouchableOpacity>
 
-          <View style={styles.registerContainer}>
-            <Text style={styles.registerText}>Don't have an account? </Text>
-            <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
-              <Text style={styles.registerLink}>Register</Text>
+          <View style={styles.loginContainer}>
+            <Text style={styles.loginText}>Already have an account? </Text>
+            <TouchableOpacity onPress={() => router.back()}>
+              <Text style={styles.loginLink}>Sign In</Text>
             </TouchableOpacity>
           </View>
         </View>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -119,6 +164,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#1D7373',
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   content: {
     flex: 1,
@@ -128,6 +176,7 @@ const styles = StyleSheet.create({
   logoContainer: {
     alignItems: 'center',
     marginBottom: 24,
+    marginTop: 40,
   },
   logoCircle: {
     width: 64,
@@ -152,6 +201,7 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: 16,
+    marginBottom: 40,
   },
   inputLabel: {
     color: '#FFFFFF',
@@ -173,40 +223,33 @@ const styles = StyleSheet.create({
   eyeIcon: {
     paddingRight: 16,
   },
-  forgotPasswordContainer: {
-    alignItems: 'flex-end',
-  },
-  forgotPassword: {
-    color: '#FFD700',
-    fontSize: 14,
-  },
-  signInButton: {
+  registerButton: {
     backgroundColor: '#FFD700',
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 8,
   },
-  signInButtonDisabled: {
+  registerButtonDisabled: {
     backgroundColor: '#CCCCCC',
     opacity: 0.7,
   },
-  signInText: {
+  registerButtonText: {
     color: '#1D7373',
     fontSize: 16,
     fontWeight: 'bold',
   },
-  registerContainer: {
+  loginContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     marginTop: 16,
   },
-  registerText: {
+  loginText: {
     color: '#CCDEDE',
     fontSize: 14,
   },
-  registerLink: {
+  loginLink: {
     color: '#FFD700',
     fontSize: 14,
   },
-});
+}); 
