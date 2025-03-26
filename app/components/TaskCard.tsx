@@ -1,88 +1,83 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Task } from '../types/task.types';
-import { 
-  Lightbulb, 
-  Droplets, 
-  Recycle, 
-  Car, 
-  Apple, 
-  FlowerIcon,
-  Check
-} from 'lucide-react-native';
 
 interface TaskCardProps {
   task: Task;
-  onPress: (task: Task) => void;
-  onComplete?: (taskId: string) => void;
+  onPress: () => void;
+  onComplete?: () => void;
 }
 
-export const TaskCard = ({ task, onPress, onComplete }: TaskCardProps) => {
-  const renderIcon = () => {
-    const size = 24;
-    const color = task.iconColor || '#FFD700';
-
-    switch (task.iconName) {
-      case 'lightbulb':
-        return <Lightbulb size={size} color={color} />;
-      case 'droplets':
-        return <Droplets size={size} color={color} />;
-      case 'recycle':
-        return <Recycle size={size} color={color} />;
-      case 'car':
-        return <Car size={size} color={color} />;
-      case 'apple':
-        return <Apple size={size} color={color} />;
-      default:
-        return <FlowerIcon size={size} color={color} />;
-    }
-  };
+export const TaskCard: React.FC<TaskCardProps> = ({ task, onPress, onComplete }) => {
+  const { title, description, category, points, isCompleted, iconName, iconColor } = task;
 
   return (
     <TouchableOpacity 
-      style={[styles.container, task.isCompleted && styles.completedContainer]} 
-      onPress={() => onPress(task)}
-      disabled={task.isCompleted}
+      style={[styles.card, isCompleted && styles.completedCard]} 
+      onPress={onPress}
+      activeOpacity={0.7}
     >
       <View style={styles.header}>
         <View style={styles.iconContainer}>
-          {renderIcon()}
+          <MaterialCommunityIcons 
+            name={iconName || 'checkbox-marked-circle-outline'} 
+            size={24} 
+            color={iconColor || '#4CAF50'} 
+          />
         </View>
-        <Text style={styles.title}>{task.title}</Text>
+        <View style={styles.titleContainer}>
+          <Text style={styles.title} numberOfLines={1}>{title}</Text>
+          <Text style={styles.category}>{category}</Text>
+        </View>
         <View style={styles.pointsContainer}>
-          <Text style={styles.pointsText}>{task.points} pts</Text>
+          <Text style={styles.points}>{points}</Text>
+          <Text style={styles.pointsLabel}>pts</Text>
         </View>
       </View>
-
-      <Text style={styles.description}>{task.description}</Text>
       
-      {task.isCompleted ? (
-        <View style={styles.completedRow}>
-          <Check size={16} color="#4CAF50" />
-          <Text style={styles.completedText}>Completed</Text>
-        </View>
-      ) : onComplete ? (
+      <Text style={styles.description} numberOfLines={2}>
+        {description}
+      </Text>
+      
+      {!isCompleted && onComplete && (
         <TouchableOpacity 
           style={styles.completeButton}
-          onPress={() => onComplete(task.id)}
+          onPress={(e) => {
+            e.stopPropagation();
+            onComplete();
+          }}
         >
-          <Text style={styles.completeButtonText}>Mark as Completed</Text>
+          <MaterialCommunityIcons name="check-circle" size={18} color="white" />
+          <Text style={styles.completeButtonText}>Complete</Text>
         </TouchableOpacity>
-      ) : null}
+      )}
+      
+      {isCompleted && (
+        <View style={styles.completedBadge}>
+          <MaterialCommunityIcons name="check-circle" size={18} color="white" />
+          <Text style={styles.completedText}>Completed</Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  card: {
+    backgroundColor: 'white',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 16,
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
   },
-  completedContainer: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#4CAF50',
+  completedCard: {
+    opacity: 0.8,
+    backgroundColor: '#f9f9f9',
   },
   header: {
     flexDirection: 'row',
@@ -90,48 +85,70 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   iconContainer: {
-    marginRight: 8,
+    marginRight: 12,
   },
-  title: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
+  titleContainer: {
     flex: 1,
   },
-  pointsContainer: {
-    backgroundColor: 'rgba(255, 215, 0, 0.2)',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-  },
-  pointsText: {
-    color: '#FFD700',
-    fontSize: 12,
+  title: {
+    fontSize: 16,
     fontWeight: 'bold',
+    color: '#333',
+  },
+  category: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
+  },
+  pointsContainer: {
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  points: {
+    fontWeight: 'bold',
+    color: '#2E7D32',
+    fontSize: 14,
+  },
+  pointsLabel: {
+    fontSize: 10,
+    color: '#2E7D32',
   },
   description: {
-    color: '#88A5A5',
     fontSize: 14,
+    color: '#666',
     marginBottom: 16,
   },
-  completedRow: {
+  completeButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-  },
-  completedText: {
-    color: '#4CAF50',
-    fontSize: 14,
-  },
-  completeButton: {
-    backgroundColor: 'rgba(255, 215, 0, 0.2)',
-    padding: 8,
+    justifyContent: 'center',
+    backgroundColor: '#4CAF50',
     borderRadius: 8,
-    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
   },
   completeButtonText: {
-    color: '#FFD700',
-    fontSize: 14,
-    fontWeight: 'bold',
+    color: 'white',
+    fontWeight: '600',
+    marginLeft: 8,
   },
-}); 
+  completedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#8BC34A',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  completedText: {
+    color: 'white',
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+});
+
+export default TaskCard; 

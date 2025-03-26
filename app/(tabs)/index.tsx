@@ -5,12 +5,18 @@ import { useTask } from '../contexts/TaskContext';
 import { useAuth } from '../contexts/AuthContext';
 import { TaskCard } from '../components/TaskCard';
 import { Task, TaskCategory } from '../types/task.types';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import TaskList from '../components/TaskList';
+import TaskDetail from '../components/TaskDetail';
+import { TaskService } from '../services/task.service';
 
-export default function TasksScreen() {
+export default function TabsIndex() {
   const { tasks, loading, error, completeTask, refreshTasks } = useTask();
   const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<'available' | 'completed'>('available');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [isDetailVisible, setIsDetailVisible] = useState(false);
   
   // Refresh tasks when the screen is loaded
   useEffect(() => {
@@ -65,6 +71,43 @@ export default function TasksScreen() {
     return new Date().toLocaleDateString('en-US', options);
   };
 
+  useEffect(() => {
+    // Check if we need to add sample tasks for this user
+    const checkAndAddSampleTasks = async () => {
+      if (currentUser) {
+        try {
+          const tasks = await TaskService.getUserTasks(currentUser.uid);
+          // If user has no tasks, add sample tasks
+          if (tasks.length === 0) {
+            await TaskService.createSampleTasks(currentUser.uid);
+          }
+        } catch (error) {
+          console.error('Error checking or adding sample tasks:', error);
+        }
+      }
+    };
+    
+    checkAndAddSampleTasks();
+  }, [currentUser]);
+  
+  const handleTaskSelect = (task: Task) => {
+    setSelectedTask(task);
+    setIsDetailVisible(true);
+  };
+  
+  const handleCompleteTaskFromList = async (taskId: string) => {
+    if (!currentUser) return;
+    
+    try {
+      await TaskService.completeTask(taskId, currentUser.uid);
+      // Refresh the task list
+      setIsDetailVisible(false);
+      setSelectedTask(null);
+    } catch (error) {
+      console.error('Error completing task:', error);
+    }
+  };
+
   if (loading) {
     return (
       <View style={[styles.container, styles.centerContent]}>
@@ -85,145 +128,34 @@ export default function TasksScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>EcoTasks.</Text>
-            <Text style={styles.date}>{formatDate()}</Text>
-          </View>
-          <Text style={styles.username}>{currentUser?.displayName || 'User'}</Text>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.greeting}>Hello, {currentUser?.displayName || 'Eco Warrior'}</Text>
+          <Text style={styles.subtitle}>Ready to make a difference today?</Text>
         </View>
-
-        <View style={styles.progressCard}>
-          <View style={styles.progressRow}>
-            <Text style={styles.progressLabel}>Tasks Completed</Text>
-            <Text style={styles.progressValue}>{completedTasks} of {totalTasks}</Text>
-          </View>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: `${completionPercentage}%` }]} />
-          </View>
-          <View style={styles.progressRow}>
-            <Text style={styles.progressLabel}>Points Earned</Text>
-            <Text style={styles.progressValue}>{earnedPoints}/{totalPoints} pts</Text>
-          </View>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: `${pointsPercentage}%` }]} />
-          </View>
+        <View style={styles.pointsContainer}>
+          <MaterialCommunityIcons name="leaf" size={18} color="#4CAF50" />
+          <Text style={styles.pointsText}>{totalPoints} points</Text>
         </View>
-
-        <View style={styles.tabs}>
-          <TouchableOpacity 
-            style={activeTab === 'available' ? styles.tabActive : styles.tab}
-            onPress={() => setActiveTab('available')}
-          >
-            <Text style={activeTab === 'available' ? styles.tabTextActive : styles.tabText}>
-              Available
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={activeTab === 'completed' ? styles.tabActive : styles.tab}
-            onPress={() => setActiveTab('completed')}
-          >
-            <Text style={activeTab === 'completed' ? styles.tabTextActive : styles.tabText}>
-              Completed
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.taskList}>
-          {filteredTasks.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>
-                {activeTab === 'available' 
-                  ? 'No available tasks found.' 
-                  : 'You haven\'t completed any tasks yet.'}
-              </Text>
-            </View>
-          ) : (
-            filteredTasks.map(task => (
-              <TaskCard 
-                key={task.id} 
-                task={task}
-                onPress={handleTaskPress}
-                onComplete={activeTab === 'available' ? handleCompleteTask : undefined}
-              />
-            ))
-          )}
-        </View>
-      </ScrollView>
-
-      {/* Task Details Modal */}
-      <Modal
-        visible={selectedTask !== null}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={closeTaskDetails}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{selectedTask?.title}</Text>
-              <TouchableOpacity onPress={closeTaskDetails}>
-                <X size={24} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
-            
-            <Text style={styles.modalDescription}>{selectedTask?.description}</Text>
-            
-            <View style={styles.modalInfo}>
-              <Text style={styles.modalInfoLabel}>Category:</Text>
-              <Text style={styles.modalInfoValue}>{selectedTask?.category}</Text>
-            </View>
-            
-            <View style={styles.modalInfo}>
-              <Text style={styles.modalInfoLabel}>Points:</Text>
-              <Text style={styles.modalInfoValue}>{selectedTask?.points} pts</Text>
-            </View>
-            
-            <View style={styles.modalInfo}>
-              <Text style={styles.modalInfoLabel}>Status:</Text>
-              <Text style={[
-                styles.modalInfoValue, 
-                selectedTask?.isCompleted ? styles.completedStatus : styles.pendingStatus
-              ]}>
-                {selectedTask?.isCompleted ? 'Completed' : 'Pending'}
-              </Text>
-            </View>
-            
-            {selectedTask?.isCompleted && selectedTask.completedDate && (
-              <View style={styles.modalInfo}>
-                <Text style={styles.modalInfoLabel}>Completed on:</Text>
-                <Text style={styles.modalInfoValue}>
-                  {selectedTask.completedDate.toLocaleDateString()}
-                </Text>
-              </View>
-            )}
-            
-            {!selectedTask?.isCompleted && (
-              <TouchableOpacity 
-                style={styles.completeTaskButton}
-                onPress={() => {
-                  if (selectedTask) {
-                    handleCompleteTask(selectedTask.id);
-                    closeTaskDetails();
-                  }
-                }}
-              >
-                <Text style={styles.completeTaskButtonText}>Mark as Completed</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-      </Modal>
-    </View>
+      </View>
+      
+      <TaskList onTaskSelect={handleTaskSelect} />
+      
+      <TaskDetail
+        task={selectedTask}
+        visible={isDetailVisible}
+        onClose={closeTaskDetails}
+        onComplete={handleCompleteTaskFromList}
+      />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1D7373',
+    backgroundColor: '#f5f5f5',
   },
   centerContent: {
     justifyContent: 'center',
@@ -246,157 +178,36 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
   },
-  scrollView: {
-    flex: 1,
-  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    padding: 24,
-    paddingTop: 48,
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
-  title: {
-    fontSize: 24,
+  greeting: {
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: '#333',
   },
-  date: {
+  subtitle: {
     fontSize: 14,
-    color: '#88A5A5',
+    color: '#666',
     marginTop: 4,
   },
-  username: {
-    fontSize: 16,
-    color: '#FFFFFF',
-  },
-  progressCard: {
-    margin: 24,
-    padding: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 12,
-  },
-  progressRow: {
+  pointsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  progressLabel: {
-    color: '#FFFFFF',
-    fontSize: 14,
-  },
-  progressValue: {
-    color: '#FFFFFF',
-    fontSize: 14,
-  },
-  progressBar: {
-    height: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 2,
-    marginBottom: 16,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#FFD700',
-    borderRadius: 2,
-  },
-  tabs: {
-    flexDirection: 'row',
-    paddingHorizontal: 24,
-    marginBottom: 16,
-  },
-  tab: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginRight: 8,
-  },
-  tabActive: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginRight: 8,
-    backgroundColor: '#FFD700',
-    borderRadius: 20,
-  },
-  tabText: {
-    color: '#88A5A5',
-    fontSize: 14,
-  },
-  tabTextActive: {
-    color: '#1D7373',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  taskList: {
-    padding: 24,
-  },
-  emptyContainer: {
-    padding: 24,
     alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
   },
-  emptyText: {
-    color: '#88A5A5',
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#1D7373',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    maxHeight: '80%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  modalTitle: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: 'bold',
-    flex: 1,
-  },
-  modalDescription: {
-    color: '#CCDEDE',
-    fontSize: 16,
-    marginBottom: 24,
-  },
-  modalInfo: {
-    flexDirection: 'row',
-    marginBottom: 12,
-  },
-  modalInfoLabel: {
-    color: '#88A5A5',
-    fontSize: 14,
-    width: 100,
-  },
-  modalInfoValue: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    flex: 1,
-  },
-  completedStatus: {
-    color: '#4CAF50',
-  },
-  pendingStatus: {
-    color: '#FFD700',
-  },
-  completeTaskButton: {
-    backgroundColor: '#FFD700',
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 24,
-  },
-  completeTaskButtonText: {
-    color: '#1D7373',
-    fontSize: 16,
-    fontWeight: 'bold',
+  pointsText: {
+    marginLeft: 6,
+    fontWeight: '600',
+    color: '#2E7D32',
   },
 });
