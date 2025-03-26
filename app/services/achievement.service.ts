@@ -9,7 +9,8 @@ import {
   query,
   where,
   orderBy,
-  limit
+  limit,
+  FirebaseError
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { 
@@ -23,6 +24,23 @@ import { TaskService } from './task.service';
 import { v4 as uuidv4 } from 'uuid';
 import { UserService } from './user.service';
 import { Task } from '../types/task.types';
+import NetInfo from '@react-native-community/netinfo';
+
+// Cache for achievement data
+let cachedAchievements: { [userId: string]: Achievement[] } = {};
+let cachedTimestamps: { [userId: string]: number } = {};
+const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+// Check if device is offline
+const isOffline = async (): Promise<boolean> => {
+  try {
+    const netInfo = await NetInfo.fetch();
+    return !netInfo.isConnected;
+  } catch (error) {
+    console.log('Error checking network status:', error);
+    return false;
+  }
+};
 
 export const AchievementService = {
   /**
@@ -30,34 +48,40 @@ export const AchievementService = {
    */
   initializeUserAchievements: async (userId: string): Promise<void> => {
     try {
-      // Check if user already has achievements
-      const achievementsRef = doc(db, 'userAchievements', userId);
-      const achievementsDoc = await getDoc(achievementsRef);
-      
-      if (achievementsDoc.exists()) {
-        console.log('User already has achievements initialized');
+      // Skip if offline
+      const offline = await isOffline();
+      if (offline) {
+        console.log('Skip initializing achievements while offline');
         return;
       }
       
-      // Create achievements array with all badges unlocked = false and progress = 0
-      const achievements: Achievement[] = ACHIEVEMENT_BADGES.map(badge => ({
-        ...badge,
-        id: uuidv4(),
-        isUnlocked: false,
-        progress: 0
-      }));
+      // Check if achievements already exist for the user
+      const userAchievementsRef = doc(db, 'userAchievements', userId);
+      const userAchievementsDoc = await getDoc(userAchievementsRef);
       
-      // Save to Firestore
-      await setDoc(achievementsRef, {
-        userId,
-        achievements,
-        lastUpdated: Timestamp.now()
-      });
-      
-      console.log('User achievements initialized successfully');
+      if (!userAchievementsDoc.exists()) {
+        // Create achievements array with all badges set to unlocked = false and progress = 0
+        const achievements: Achievement[] = ACHIEVEMENT_BADGES.map(badge => ({
+          ...badge,
+          id: uuidv4(),
+          isUnlocked: false,
+          progress: 0,
+        }));
+        
+        // Save to Firestore
+        await setDoc(userAchievementsRef, { 
+          userId,
+          achievements,
+          lastUpdated: Timestamp.now() 
+        });
+        
+        // Update cache
+        cachedAchievements[userId] = achievements;
+        cachedTimestamps[userId] = Date.now();
+      }
     } catch (error) {
-      console.error('Error initializing user achievements:', error);
-      throw error;
+      console.error('Error initializing achievements:', error);
+      // Don't throw - just log the error
     }
   },
   
@@ -66,19 +90,60 @@ export const AchievementService = {
    */
   getUserAchievements: async (userId: string): Promise<Achievement[]> => {
     try {
-      const achievementsRef = doc(db, 'userAchievements', userId);
-      const achievementsDoc = await getDoc(achievementsRef);
-      
-      if (!achievementsDoc.exists()) {
-        // Initialize achievements if they don't exist
-        await AchievementService.initializeUserAchievements(userId);
-        const newDoc = await getDoc(achievementsRef);
-        return newDoc.data()?.achievements || [];
+      // Check for cached data
+      if (cachedAchievements[userId] && 
+          cachedTimestamps[userId] && 
+          Date.now() - cachedTimestamps[userId] < CACHE_DURATION) {
+        console.log('Using cached achievements');
+        return cachedAchievements[userId];
       }
       
-      return achievementsDoc.data()?.achievements || [];
+      // Check if offline
+      const offline = await isOffline();
+      if (offline) {
+        console.log('Device is offline, returning empty achievements');
+        // Return empty array or cached data if available
+        return cachedAchievements[userId] || [];
+      }
+      
+      const userAchievementsRef = doc(db, 'userAchievements', userId);
+      const userAchievementsDoc = await getDoc(userAchievementsRef);
+      
+      if (!userAchievementsDoc.exists()) {
+        // Initialize if not exists, but only if online
+        await this.initializeUserAchievements(userId);
+        
+        // Return default achievements
+        const defaultAchievements = ACHIEVEMENT_BADGES.map(badge => ({
+          ...badge,
+          id: uuidv4(),
+          isUnlocked: false,
+          progress: 0,
+        }));
+        
+        // Update cache
+        cachedAchievements[userId] = defaultAchievements;
+        cachedTimestamps[userId] = Date.now();
+        
+        return defaultAchievements;
+      }
+      
+      const data = userAchievementsDoc.data() as UserAchievements;
+      
+      // Update cache
+      cachedAchievements[userId] = data.achievements;
+      cachedTimestamps[userId] = Date.now();
+      
+      return data.achievements;
     } catch (error) {
       console.error('Error getting user achievements:', error);
+      
+      // Return cached data if available
+      if (cachedAchievements[userId]) {
+        return cachedAchievements[userId];
+      }
+      
+      // Return empty array as fallback
       return [];
     }
   },
@@ -87,65 +152,114 @@ export const AchievementService = {
    * Update achievement progress based on user activities
    */
   updateAchievements: async (userId: string): Promise<Achievement[]> => {
-    const achievements = await AchievementService.getUserAchievements(userId);
-    const userStats = await UserService.getUserStats(userId);
-    const tasks = await TaskService.getUserTasks(userId);
-    
-    // Calculate updates for each achievement
-    const updatedAchievements = achievements.map(achievement => {
-      const { type, requirement, category } = achievement;
-      let progress = 0;
-      
-      switch (type) {
-        case AchievementType.TASK_COMPLETION:
-          // Progress based on total completed tasks
-          progress = Math.min(100, (userStats.totalTasksCompleted / requirement) * 100);
-          break;
-        
-        case AchievementType.CATEGORY_MASTER:
-          // Progress based on completed tasks in a specific category
-          if (category) {
-            const categoryTasks = tasks.filter(
-              (task: Task) => task.category === category && task.isCompleted
-            );
-            progress = Math.min(100, (categoryTasks.length / requirement) * 100);
-          }
-          break;
-        
-        case AchievementType.POINTS_MILESTONE:
-          // Progress based on total eco-points earned
-          progress = Math.min(100, (userStats.ecoPoints / requirement) * 100);
-          break;
-        
-        case AchievementType.STREAK:
-          // Progress based on streak days
-          progress = Math.min(100, (userStats.currentStreak / requirement) * 100);
-          break;
+    try {
+      // Skip if offline
+      const offline = await isOffline();
+      if (offline) {
+        console.log('Skip updating achievements while offline');
+        return cachedAchievements[userId] || [];
       }
       
-      // Round progress to nearest integer
-      progress = Math.round(progress);
+      const achievements = await AchievementService.getUserAchievements(userId);
       
-      // Check if the achievement should be unlocked
-      const shouldUnlock = progress >= 100 && !achievement.isUnlocked;
+      // Skip if no achievements found
+      if (!achievements || achievements.length === 0) {
+        return [];
+      }
       
-      return {
-        ...achievement,
-        progress,
-        isUnlocked: shouldUnlock ? true : achievement.isUnlocked,
-        unlockedAt: shouldUnlock ? new Date() : achievement.unlockedAt,
-      };
-    });
-    
-    // Save updated achievements back to Firestore
-    const userAchievementsRef = doc(db, 'userAchievements', userId);
-    await setDoc(userAchievementsRef, {
-      userId,
-      achievements: updatedAchievements,
-      lastUpdated: Timestamp.now()
-    });
-    
-    return updatedAchievements;
+      // Try to get user stats, but use defaults if fails
+      let userStats;
+      try {
+        userStats = await UserService.getUserStats(userId);
+      } catch (error) {
+        console.error('Error getting user stats:', error);
+        userStats = {
+          ecoPoints: 0,
+          totalTasksCompleted: 0,
+          currentStreak: 0,
+          longestStreak: 0,
+          taskCompletionsByCategory: {},
+          lastActive: null
+        };
+      }
+      
+      // Try to get tasks, but use empty array if fails
+      let tasks;
+      try {
+        tasks = await TaskService.getUserTasks(userId);
+      } catch (error) {
+        console.error('Error getting user tasks:', error);
+        tasks = [];
+      }
+      
+      // Calculate updates for each achievement
+      const updatedAchievements = achievements.map(achievement => {
+        const { type, requirement, category } = achievement;
+        let progress = 0;
+        
+        switch (type) {
+          case AchievementType.TASK_COMPLETION:
+            // Progress based on total completed tasks
+            progress = Math.min(100, (userStats.totalTasksCompleted / requirement) * 100);
+            break;
+          
+          case AchievementType.CATEGORY_MASTER:
+            // Progress based on completed tasks in a specific category
+            if (category) {
+              const categoryTasks = tasks.filter(
+                (task: Task) => task.category === category && task.isCompleted
+              );
+              progress = Math.min(100, (categoryTasks.length / requirement) * 100);
+            }
+            break;
+          
+          case AchievementType.POINTS_MILESTONE:
+            // Progress based on total eco-points earned
+            progress = Math.min(100, (userStats.ecoPoints / requirement) * 100);
+            break;
+          
+          case AchievementType.STREAK:
+            // Progress based on streak days
+            progress = Math.min(100, (userStats.currentStreak / requirement) * 100);
+            break;
+        }
+        
+        // Round progress to nearest integer
+        progress = Math.round(progress);
+        
+        // Check if the achievement should be unlocked
+        const shouldUnlock = progress >= 100 && !achievement.isUnlocked;
+        
+        return {
+          ...achievement,
+          progress,
+          isUnlocked: shouldUnlock ? true : achievement.isUnlocked,
+          unlockedAt: shouldUnlock ? new Date() : achievement.unlockedAt,
+        };
+      });
+      
+      // Save updated achievements back to Firestore
+      try {
+        const userAchievementsRef = doc(db, 'userAchievements', userId);
+        await setDoc(userAchievementsRef, { 
+          userId,
+          achievements: updatedAchievements,
+          lastUpdated: Timestamp.now()
+        });
+        
+        // Update cache
+        cachedAchievements[userId] = updatedAchievements;
+        cachedTimestamps[userId] = Date.now();
+      } catch (error) {
+        console.error('Error saving updated achievements:', error);
+        // Still return the calculated achievements even if saving fails
+      }
+      
+      return updatedAchievements;
+    } catch (error) {
+      console.error('Error updating achievements:', error);
+      return cachedAchievements[userId] || [];
+    }
   },
   
   /**
@@ -153,15 +267,25 @@ export const AchievementService = {
    */
   getNewlyUnlockedAchievements: async (userId: string): Promise<Achievement[]> => {
     try {
-      // Get all achievements
-      const achievements = await AchievementService.getUserAchievements(userId);
+      // Skip if offline
+      const offline = await isOffline();
+      if (offline) {
+        console.log('Skip checking for new achievements while offline');
+        return [];
+      }
       
-      // Filter for recently unlocked achievements (in the last hour)
+      const achievements = await this.getUserAchievements(userId);
+      
+      // Skip if no achievements
+      if (!achievements || achievements.length === 0) {
+        return [];
+      }
+      
       const oneHourAgo = new Date();
       oneHourAgo.setHours(oneHourAgo.getHours() - 1);
       
-      return achievements.filter(achievement => 
-        achievement.isUnlocked && 
+      return achievements.filter(
+        achievement => achievement.isUnlocked && 
         achievement.unlockedAt && 
         achievement.unlockedAt > oneHourAgo
       );
@@ -173,19 +297,61 @@ export const AchievementService = {
   
   // Trigger achievement updates when a task is completed
   async onTaskCompleted(userId: string, categoryName: string): Promise<Achievement[]> {
-    await AchievementService.updateAchievements(userId);
-    return AchievementService.getNewlyUnlockedAchievements(userId);
+    try {
+      // Skip if offline
+      const offline = await isOffline();
+      if (offline) {
+        console.log('Skip achievement updates for task completion while offline');
+        return [];
+      }
+      
+      await AchievementService.updateAchievements(userId);
+      return AchievementService.getNewlyUnlockedAchievements(userId);
+    } catch (error) {
+      console.error('Error handling task completion:', error);
+      return [];
+    }
   },
   
   // Trigger achievement updates when the user logs in (for streak achievements)
   async onUserLogin(userId: string): Promise<Achievement[]> {
-    await AchievementService.updateAchievements(userId);
-    return AchievementService.getNewlyUnlockedAchievements(userId);
+    try {
+      // Skip if offline
+      const offline = await isOffline();
+      if (offline) {
+        console.log('Skip achievement updates for login while offline');
+        return [];
+      }
+      
+      await AchievementService.updateAchievements(userId);
+      return AchievementService.getNewlyUnlockedAchievements(userId);
+    } catch (error) {
+      console.error('Error handling user login:', error);
+      return [];
+    }
   },
   
   // Trigger achievement updates when the user earns points
   async onPointsEarned(userId: string): Promise<Achievement[]> {
-    await AchievementService.updateAchievements(userId);
-    return AchievementService.getNewlyUnlockedAchievements(userId);
+    try {
+      // Skip if offline
+      const offline = await isOffline();
+      if (offline) {
+        console.log('Skip achievement updates for points earned while offline');
+        return [];
+      }
+      
+      await AchievementService.updateAchievements(userId);
+      return AchievementService.getNewlyUnlockedAchievements(userId);
+    } catch (error) {
+      console.error('Error handling points earned:', error);
+      return [];
+    }
+  },
+  
+  // Clear cached achievements for a user
+  clearCache(userId: string): void {
+    delete cachedAchievements[userId];
+    delete cachedTimestamps[userId];
   }
 }; 

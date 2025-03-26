@@ -38,6 +38,14 @@ export default function AchievementsScreen() {
     if (!currentUser) return;
     
     setLoading(true);
+    
+    // Set a timeout to prevent infinite loading
+    const loadingTimeout = setTimeout(() => {
+      setLoading(false);
+      setNetworkError(true);
+      console.log('Achievement loading timed out');
+    }, 5000); // 5 second timeout
+    
     try {
       // Check network connection
       const networkState = await NetInfo.fetch();
@@ -47,6 +55,7 @@ export default function AchievementsScreen() {
         setNetworkError(true);
         // If we have cached achievements, use them
         if (achievements.length > 0) {
+          clearTimeout(loadingTimeout);
           setLoading(false);
           return;
         }
@@ -54,6 +63,7 @@ export default function AchievementsScreen() {
         // Set empty achievements list if offline and no cache
         if (retryAttempt > 2) {
           setAchievements([]);
+          clearTimeout(loadingTimeout);
           setLoading(false);
           return;
         }
@@ -63,19 +73,26 @@ export default function AchievementsScreen() {
       
       // Only try to update achievements if online
       if (isConnected) {
-        // Update achievements progress first
-        await AchievementService.updateAchievements(currentUser.uid);
+        try {
+          // Update achievements progress first
+          await AchievementService.updateAchievements(currentUser.uid);
+        } catch (error) {
+          console.error('Error updating achievements:', error);
+          // Continue to try to get achievements even if update fails
+        }
       }
       
       // Then get the updated achievements
       const userAchievements = await AchievementService.getUserAchievements(currentUser.uid);
       setAchievements(userAchievements);
+      clearTimeout(loadingTimeout);
     } catch (error) {
       console.error('Error loading achievements:', error);
       setNetworkError(true);
       
       // If we have multiple failures and some cached data, just use that
       if (achievements.length > 0) {
+        clearTimeout(loadingTimeout);
         setLoading(false);
         return;
       }
@@ -87,6 +104,7 @@ export default function AchievementsScreen() {
         setRetryAttempt(prev => prev + 1);
       }
     } finally {
+      clearTimeout(loadingTimeout);
       setLoading(false);
     }
   }, [currentUser, retryAttempt, achievements.length]);
