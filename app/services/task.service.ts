@@ -20,39 +20,61 @@ import { Task, TaskCategory, UserTaskProgress } from '../types/task.types';
 
 const COLLECTION_NAME = 'tasks';
 
+// Optimize task fetching with caching
+interface CacheMap {
+  [key: string]: Task[];
+}
+
+interface TimestampMap {
+  [key: string]: number;
+}
+
+let cachedAvailableTasks: CacheMap = {};
+let cachedCompletedTasks: CacheMap = {};
+let lastFetchTime: TimestampMap = {};
+
 export const TaskService = {
   // Get all tasks for a user
-  getUserTasks: async (userId: string): Promise<Task[]> => {
+  getUserTasks: async (userId: string, forceRefresh = false): Promise<Task[]> => {
     try {
-      const q = query(collection(db, COLLECTION_NAME), where('userId', '==', userId));
-      const querySnapshot = await getDocs(q);
+      // Create cache keys
+      const cacheKey = `user_${userId}`;
+      const currentTime = Date.now();
       
-      return querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        
-        // Convert Firestore Timestamps to JavaScript Date objects
-        const createdAt = data.createdAt instanceof Timestamp 
-          ? data.createdAt.toDate() 
-          : new Date(data.createdAt);
-        
-        const updatedAt = data.updatedAt instanceof Timestamp 
-          ? data.updatedAt.toDate() 
-          : new Date(data.updatedAt);
-        
-        const completedDate = data.completedDate instanceof Timestamp 
-          ? data.completedDate.toDate() 
-          : data.completedDate ? new Date(data.completedDate) : undefined;
-          
-        return {
-          id: doc.id,
-          ...data,
-          createdAt,
-          updatedAt,
-          completedDate
-        } as Task;
-      });
+      // Check if we have a recent cache (within 5 minutes) and not forced refresh
+      if (!forceRefresh && 
+          cachedAvailableTasks[cacheKey] && 
+          lastFetchTime[cacheKey] && 
+          (currentTime - lastFetchTime[cacheKey] < 5 * 60 * 1000)) {
+        return [...cachedAvailableTasks[cacheKey], ...cachedCompletedTasks[cacheKey]];
+      }
+      
+      // Fetch all tasks for the user
+      const tasksRef = collection(db, 'tasks');
+      const q = query(
+        tasksRef,
+        where('userId', '==', userId),
+        orderBy('createdAt', 'desc')
+      );
+      
+      const querySnapshot = await getDocs(q);
+      const tasks = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Task[];
+      
+      // Separate available and completed tasks
+      const available = tasks.filter(task => !task.isCompleted);
+      const completed = tasks.filter(task => task.isCompleted);
+      
+      // Update cache
+      cachedAvailableTasks[cacheKey] = available;
+      cachedCompletedTasks[cacheKey] = completed;
+      lastFetchTime[cacheKey] = currentTime;
+      
+      return tasks;
     } catch (error) {
-      console.error('Error getting tasks:', error);
+      console.error('Error getting user tasks:', error);
       throw error;
     }
   },
@@ -80,21 +102,22 @@ export const TaskService = {
   },
   
   // Get completed tasks
-  getCompletedTasks: async (userId: string): Promise<Task[]> => {
+  getCompletedTasks: async (userId: string, forceRefresh = false): Promise<Task[]> => {
     try {
-      const tasksRef = collection(db, 'tasks');
-      const q = query(
-        tasksRef,
-        where('userId', '==', userId),
-        where('isCompleted', '==', true),
-        orderBy('completedDate', 'desc')
-      );
+      const cacheKey = `user_${userId}`;
+      const currentTime = Date.now();
       
-      const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Task[];
+      // Use cache if available and recent
+      if (!forceRefresh && 
+          cachedCompletedTasks[cacheKey] && 
+          lastFetchTime[cacheKey] && 
+          (currentTime - lastFetchTime[cacheKey] < 5 * 60 * 1000)) {
+        return cachedCompletedTasks[cacheKey];
+      }
+      
+      // If we need to fetch
+      const tasks = await TaskService.getUserTasks(userId, true);
+      return tasks.filter((task: Task) => task.isCompleted);
     } catch (error) {
       console.error('Error getting completed tasks:', error);
       throw error;
@@ -102,21 +125,22 @@ export const TaskService = {
   },
   
   // Get available tasks
-  getAvailableTasks: async (userId: string): Promise<Task[]> => {
+  getAvailableTasks: async (userId: string, forceRefresh = false): Promise<Task[]> => {
     try {
-      const tasksRef = collection(db, 'tasks');
-      const q = query(
-        tasksRef,
-        where('userId', '==', userId),
-        where('isCompleted', '==', false),
-        orderBy('createdAt', 'desc')
-      );
+      const cacheKey = `user_${userId}`;
+      const currentTime = Date.now();
       
-      const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Task[];
+      // Use cache if available and recent
+      if (!forceRefresh && 
+          cachedAvailableTasks[cacheKey] && 
+          lastFetchTime[cacheKey] && 
+          (currentTime - lastFetchTime[cacheKey] < 5 * 60 * 1000)) {
+        return cachedAvailableTasks[cacheKey];
+      }
+      
+      // If we need to fetch
+      const tasks = await TaskService.getUserTasks(userId, true);
+      return tasks.filter((task: Task) => !task.isCompleted);
     } catch (error) {
       console.error('Error getting available tasks:', error);
       throw error;
@@ -245,14 +269,38 @@ export const TaskService = {
         updatedAt: new Date()
       },
       {
-        title: 'Use reusable water bottle',
-        description: 'Carry a reusable water bottle instead of buying plastic bottles.',
+        title: 'Donate food',
+        description: 'Donate excess food to those in need instead of wasting it.',
+        category: 'Food' as TaskCategory,
+        points: 25,
+        isCompleted: false,
+        userId,
+        iconName: 'food-apple',
+        iconColor: '#FF6B6B',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        title: 'Use reusable shopping bags',
+        description: 'Carry reusable bags for shopping instead of using plastic bags.',
         category: 'Waste' as TaskCategory,
         points: 15,
         isCompleted: false,
         userId,
-        iconName: 'bottle',
+        iconName: 'shopping',
         iconColor: '#4CAF50',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        title: 'Travel by bicycle or walking',
+        description: 'Choose environmentally friendly transportation methods for short distances.',
+        category: 'Transport' as TaskCategory,
+        points: 30,
+        isCompleted: false,
+        userId,
+        iconName: 'bicycle',
+        iconColor: '#42A5F5',
         createdAt: new Date(),
         updatedAt: new Date()
       },
@@ -264,41 +312,31 @@ export const TaskService = {
         isCompleted: false,
         userId,
         iconName: 'water',
-        iconColor: '#2196F3',
+        iconColor: '#29B6F6',
         createdAt: new Date(),
         updatedAt: new Date()
       },
       {
-        title: 'Plant a tree',
-        description: 'Plant a tree in your garden or participate in a tree planting event.',
-        category: 'Other' as TaskCategory,
-        points: 50,
+        title: 'Use energy-efficient appliances',
+        description: 'When replacing appliances, choose ones with high energy efficiency ratings.',
+        category: 'Energy' as TaskCategory,
+        points: 35,
         isCompleted: false,
         userId,
-        iconName: 'tree',
-        iconColor: '#2E7D32',
-        createdAt: new Date(),
-        updatedAt: new Date()
-      },
-      {
-        title: 'Use public transport',
-        description: 'Take public transport instead of driving your car for a day.',
-        category: 'Transport' as TaskCategory,
-        points: 30,
-        isCompleted: false,
-        userId,
-        iconName: 'bus',
-        iconColor: '#9C27B0',
+        iconName: 'flash',
+        iconColor: '#FFC107',
         createdAt: new Date(),
         updatedAt: new Date()
       }
     ];
 
     try {
+      const batch = [];
       const tasksRef = collection(db, 'tasks');
       for (const task of sampleTasks) {
-        await addDoc(tasksRef, task);
+        batch.push(addDoc(tasksRef, task));
       }
+      await Promise.all(batch);
     } catch (error) {
       console.error('Error creating sample tasks:', error);
       throw error;
@@ -317,6 +355,24 @@ export const TaskService = {
     } catch (error) {
       console.error('Error getting user progress:', error);
       throw error;
+    }
+  },
+  
+  // Check if a user has any tasks
+  hasAnyTasks: async (userId: string): Promise<boolean> => {
+    try {
+      const tasksRef = collection(db, 'tasks');
+      const q = query(
+        tasksRef,
+        where('userId', '==', userId),
+        limit(1)
+      );
+      
+      const snapshot = await getDocs(q);
+      return !snapshot.empty;
+    } catch (error) {
+      console.error('Error checking if user has tasks:', error);
+      return false;
     }
   }
 }; 

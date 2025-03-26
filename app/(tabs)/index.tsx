@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert, Modal } from 'react-native';
 import { Camera, Bike, ShoppingBag, X } from 'lucide-react-native';
 import { useTask } from '../contexts/TaskContext';
@@ -10,6 +10,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import TaskList from '../components/TaskList';
 import TaskDetail from '../components/TaskDetail';
 import { TaskService } from '../services/task.service';
+import { useFocusEffect } from 'expo-router';
 
 export default function TabsIndex() {
   const { tasks, loading, error, completeTask, refreshTasks } = useTask();
@@ -18,12 +19,44 @@ export default function TabsIndex() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isDetailVisible, setIsDetailVisible] = useState(false);
   const [totalPoints, setTotalPoints] = useState(0);
+  const [initialLoading, setInitialLoading] = useState(true);
   
-  // Refresh tasks when the screen is loaded
-  useEffect(() => {
-    refreshTasks();
-  }, []);
-
+  // Load tasks when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      const checkAndAddSampleTasks = async () => {
+        if (!currentUser) return;
+        
+        try {
+          // Just check if user has tasks first before fetching all of them
+          const query = await TaskService.hasAnyTasks(currentUser.uid);
+          
+          // If no tasks exist yet, add sample tasks
+          if (!query) {
+            await TaskService.createSampleTasks(currentUser.uid);
+          }
+          
+          // Get just the points without loading all tasks
+          const userProgress = await TaskService.getUserProgress(currentUser.uid);
+          if (userProgress) {
+            setTotalPoints(userProgress.totalPointsEarned);
+          }
+          
+        } catch (error) {
+          console.error('Error checking tasks:', error);
+        } finally {
+          setInitialLoading(false);
+        }
+      };
+      
+      checkAndAddSampleTasks();
+      
+      return () => {
+        // Clean up any subscriptions
+      };
+    }, [currentUser])
+  );
+  
   // Filter tasks based on active tab
   const filteredTasks = tasks.filter(task => 
     activeTab === 'available' ? !task.isCompleted : task.isCompleted
@@ -49,16 +82,15 @@ export default function TabsIndex() {
     
     try {
       await TaskService.completeTask(taskId, currentUser.uid);
-      // Refresh the task list and update points
+      // Close the detail view
       setIsDetailVisible(false);
       setSelectedTask(null);
       
-      // Update points after completion
-      const tasks = await TaskService.getUserTasks(currentUser.uid);
-      const points = tasks.reduce((sum, task) => {
-        return sum + (task.isCompleted ? task.points : 0);
-      }, 0);
-      setTotalPoints(points);
+      // Just update the points directly
+      const userProgress = await TaskService.getUserProgress(currentUser.uid);
+      if (userProgress) {
+        setTotalPoints(userProgress.totalPointsEarned);
+      }
     } catch (error) {
       console.error('Error completing task:', error);
     }
@@ -69,6 +101,7 @@ export default function TabsIndex() {
   };
 
   const closeTaskDetails = () => {
+    setIsDetailVisible(false);
     setSelectedTask(null);
   };
 
@@ -82,32 +115,6 @@ export default function TabsIndex() {
     return new Date().toLocaleDateString('en-US', options);
   };
 
-  useEffect(() => {
-    // Check if we need to add sample tasks for this user
-    const checkAndAddSampleTasks = async () => {
-      if (currentUser) {
-        try {
-          const tasks = await TaskService.getUserTasks(currentUser.uid);
-          
-          // Calculate total points
-          const points = tasks.reduce((sum, task) => {
-            return sum + (task.isCompleted ? task.points : 0);
-          }, 0);
-          setTotalPoints(points);
-          
-          // If user has no tasks, add sample tasks
-          if (tasks.length === 0) {
-            await TaskService.createSampleTasks(currentUser.uid);
-          }
-        } catch (error) {
-          console.error('Error checking or adding sample tasks:', error);
-        }
-      }
-    };
-    
-    checkAndAddSampleTasks();
-  }, [currentUser]);
-  
   const handleTaskSelect = (task: Task) => {
     setSelectedTask(task);
     setIsDetailVisible(true);
@@ -125,6 +132,14 @@ export default function TabsIndex() {
       console.error('Error completing task:', error);
     }
   };
+
+  if (initialLoading) {
+    return (
+      <View style={[styles.container, styles.centerContainer]}>
+        <ActivityIndicator size="large" color="#FFD700" />
+      </View>
+    );
+  }
 
   if (loading) {
     return (
@@ -176,6 +191,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#1D7373',
   },
   centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  centerContainer: {
     justifyContent: 'center',
     alignItems: 'center',
   },
