@@ -1,64 +1,22 @@
 # Sustainiaplay
 
-A React Native mobile application focused on promoting sustainable living through gamification and task management.
+A Flutter (Dart) mobile application focused on promoting sustainable living through gamification and task management.
 
 ## Features
 
-- **Task Management**: Track and complete eco-friendly tasks
+- **Task Management**: complete eco-friendly tasks and earn points
 - **Impact Tracking**: Monitor your environmental impact
-- **Leaderboard**: Compete with others in sustainability challenges
+- **Unlock Avatars**: earn points and unlock avatars
 - **User Authentication**: Secure login system
+- **Buy eco-friendly brands**: list of eco-friendly products to promote sustainability  
 
 ## Tech Stack
 
-- React Native
-- Expo
-- TypeScript
-- React Navigation
+- Dart
+- Flutter
+- Android Studio
 
-## Getting Started
 
-### Prerequisites
-
-- Node.js
-- npm or yarn
-- Expo Go app (for mobile testing)
-
-### Installation
-
-1. Clone the repository:
-```bash
-git clone https://github.com/Harisffc/Final-Year-Project.git
-```
-
-2. Install dependencies:
-```bash
-npm install
-```
-
-3. Start the development server:
-```bash
-npx expo start
-```
-
-4. Open the app in Expo Go by scanning the QR code
-
-## Project Structure
-
-```
-sustainiaplay/
-├── app/
-│   ├── (auth)/
-│   │   └── login.tsx
-│   └── (tabs)/
-│       ├── _layout.tsx
-│       ├── impact.tsx
-│       ├── index.tsx
-│       └── signin.tsx
-├── assets/
-├── components/
-└── hooks/
-```
 
 ## Contributing
 
