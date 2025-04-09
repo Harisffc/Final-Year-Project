@@ -1,26 +1,61 @@
-// points_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'points_provider.dart'; // Ensure this points to your PointsProvider
+import 'points_provider.dart'; // Import PointsProvider
 
 class PointsScreen extends StatelessWidget {
-  const PointsScreen({Key? key}) : super(key: key);
+  final String userId = 'user123'; // Replace with actual user ID, potentially from Supabase Auth
 
   @override
   Widget build(BuildContext context) {
-    final totalPoints = Provider.of<PointsProvider>(context).totalPoints;
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Your Points'),
+        title: Text('Your Points'),
         backgroundColor: Colors.teal[700],
       ),
-      body: Center(
-        child: Text(
-          'Total Points: $totalPoints',
-          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-        ),
+      body: Consumer<PointsProvider>(
+        builder: (context, pointsProvider, child) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Display total points
+                Text(
+                  'Total Points: ${pointsProvider.totalPoints}',
+                  style: TextStyle(fontSize: 24),
+                ),
+                SizedBox(height: 20),
+
+                // Button to fetch points from Supabase
+                ElevatedButton(
+                  onPressed: () async {
+                    await pointsProvider.fetchTotalPoints(userId);
+                  },
+                  child: Text('Fetch Points'),
+                ),
+                SizedBox(height: 10),
+
+                // Button to add points to Supabase
+                ElevatedButton(
+                  onPressed: () async {
+                    await pointsProvider.addPoints(userId, 10);
+                  },
+                  child: Text('Add 10 Points'),
+                ),
+                SizedBox(height: 10),
+
+                // Button to reset points
+                ElevatedButton(
+                  onPressed: () {
+                    pointsProvider.resetPoints();
+                  },
+                  child: Text('Reset Points'),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 }
+
