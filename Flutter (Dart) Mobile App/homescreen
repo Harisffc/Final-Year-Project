@@ -9,10 +9,17 @@ import 'package:supabase_flutter/supabase_flutter.dart' as supabase; // Alias fo
 import 'points_provider.dart'; // Import the PointsProvider
 import 'points_screen.dart'; // Ensure PointsScreen is imported
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   final List<CameraDescription> cameras;
 
   HomeScreen({Key? key, required this.cameras}) : super(key: key);
+
+  @override
+  _HomeScreenState createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  int _selectedIndex = 0; // Track the selected index for bottom navigation
 
   final List<Map<String, dynamic>> tasks = [
     {'title': 'Donate Food', 'points': 50, 'taskType': 'food'},
@@ -203,12 +210,13 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Color(0xFF0C7C72), // Set the same color as sign_in.dart
       appBar: AppBar(
         title: const Text('Eco Tasks'),
         backgroundColor: Colors.teal[700],
       ),
-      body: ListView.builder(
+      body: _selectedIndex == 0
+          ? ListView.builder(
         itemCount: tasks.length,
         itemBuilder: (context, index) {
           var task = tasks[index];
@@ -219,25 +227,27 @@ class HomeScreen extends StatelessWidget {
             onTakePhoto: () => _takePhoto(context, task['taskType'], task['points']),
           );
         },
-      ),
+      )
+          : PointsScreen(), // Display PointsScreen for selected index 1
       bottomNavigationBar: BottomNavigationBar(
+        backgroundColor: Colors.grey.withOpacity(0.3), // Light grey transparent background
+        currentIndex: _selectedIndex,
+        selectedItemColor: Colors.yellow, // Yellow icon for the active tab
+        unselectedItemColor: Colors.grey, // Grey color for inactive icons
         items: [
           BottomNavigationBarItem(
-            icon: Icon(Icons.home),
+            icon: Icon(Icons.home, color: _selectedIndex == 0 ? Colors.yellow : Colors.grey),
             label: 'Home',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.star),
+            icon: Icon(Icons.star, color: _selectedIndex == 1 ? Colors.yellow : Colors.grey),
             label: 'Points',
           ),
         ],
         onTap: (index) {
-          if (index == 1) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => PointsScreen()),
-            );
-          }
+          setState(() {
+            _selectedIndex = index; // Update selected index
+          });
         },
       ),
     );
@@ -261,38 +271,78 @@ class TaskCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // You can customize images for each task by using a map or directly in the widget
+    String imagePath = _getImageForTask(taskType); // Get the image path based on the task type
+
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      color: Colors.grey.withOpacity(0.3), // Light grey transparent background
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween, // Space between the content
           children: [
-            Text(
-              title,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            // Left side: Text and Button
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Points: $points',
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.camera_alt),
+                    label: const Text('Take Photo'),
+                    onPressed: onTakePhoto,
+                    style: ElevatedButton.styleFrom(
+                      foregroundColor: Colors.black,
+                      backgroundColor: Colors.yellowAccent,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Points: $points',
-              style: const TextStyle(color: Colors.grey),
-            ),
-            const SizedBox(height: 12),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.camera_alt),
-              label: const Text('Take Photo'),
-              onPressed: onTakePhoto,
-              style: ElevatedButton.styleFrom(
-                foregroundColor: Colors.black,
-                backgroundColor: Colors.yellowAccent,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            // Right side: Image
+            Padding(
+              padding: const EdgeInsets.only(left: 16), // Add padding between the text and image
+              child: Image.asset(
+                imagePath, // Path to the image asset
+                width: 100, // Customize width of the image
+                height: 100, // Customize height of the image
+                fit: BoxFit.cover, // Make sure the image fits within the box
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  // Method to return image based on the task type
+  String _getImageForTask(String taskType) {
+    switch (taskType) {
+      case 'food':
+        return 'assets/food_image.png'; // Replace with actual path to your image
+      case 'bags':
+        return 'assets/bag_image.png';
+      case 'transport':
+        return 'assets/transport_image.png';
+      case 'water':
+        return 'assets/water_image.png';
+      case 'energy':
+        return 'assets/energy_image.png';
+      default:
+        return 'assets/default_image.png'; // Fallback image
+    }
   }
 }
 
