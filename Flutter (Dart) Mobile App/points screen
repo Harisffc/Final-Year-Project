@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'points_provider.dart'; // Import PointsProvider
@@ -9,6 +8,7 @@ class PointsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Color(0xFF0C7C72), // Set the same color as sign_in.dart
       appBar: AppBar(
         title: Text('Your Points'),
         backgroundColor: Colors.teal[700],
@@ -19,10 +19,18 @@ class PointsScreen extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                // Display the GIF logo (eco logo)
+                Image.asset(
+                  'assets/images/eco_logo.gif', // Path to your GIF logo
+                  height: 100, // Adjust the size of the GIF as needed
+                  width: 100,
+                ),
+                SizedBox(height: 20),
+
                 // Display total points
                 Text(
                   'Total Points: ${pointsProvider.totalPoints}',
-                  style: TextStyle(fontSize: 24),
+                  style: TextStyle(fontSize: 24, color: Colors.white), // White text color
                 ),
                 SizedBox(height: 20),
               ],
