@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'points_provider.dart'; // Import PointsProvider
@@ -24,32 +25,6 @@ class PointsScreen extends StatelessWidget {
                   style: TextStyle(fontSize: 24),
                 ),
                 SizedBox(height: 20),
-
-                // Button to fetch points from Supabase
-                ElevatedButton(
-                  onPressed: () async {
-                    await pointsProvider.fetchTotalPoints(userId);
-                  },
-                  child: Text('Fetch Points'),
-                ),
-                SizedBox(height: 10),
-
-                // Button to add points to Supabase
-                ElevatedButton(
-                  onPressed: () async {
-                    await pointsProvider.addPoints(userId, 10);
-                  },
-                  child: Text('Add 10 Points'),
-                ),
-                SizedBox(height: 10),
-
-                // Button to reset points
-                ElevatedButton(
-                  onPressed: () {
-                    pointsProvider.resetPoints();
-                  },
-                  child: Text('Reset Points'),
-                ),
               ],
             ),
           );
@@ -58,4 +33,5 @@ class PointsScreen extends StatelessWidget {
     );
   }
 }
+
 
