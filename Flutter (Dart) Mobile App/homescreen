@@ -54,6 +54,12 @@ class HomeScreen extends StatelessWidget {
         break;
     }
 
+    // Read image bytes outside of the showDialog
+    Uint8List? imageBytes;
+    if (kIsWeb) {
+      imageBytes = await image.readAsBytes();
+    }
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -64,7 +70,7 @@ class HomeScreen extends StatelessWidget {
             children: [
               // Conditionally display image based on platform
               kIsWeb
-                  ? Image.network(image.path)  // For Web, display network image (or replace with actual URL)
+                  ? Image.memory(imageBytes!)  // For Web, use Image.memory (base64 encoding)
                   : Image.file(File(image.path)), // For mobile, use Image.file
 
               const SizedBox(height: 12),
@@ -82,7 +88,10 @@ class HomeScreen extends StatelessWidget {
           TextButton(
             onPressed: () async {
               if (controller.text.isNotEmpty) {
-                // For Web: Handle the image differently using data or base64 encoding
+                // Get the current user ID (replace with actual logic)
+                final userId = supabase.Supabase.instance.client.auth.currentUser?.id ?? 'unknown_user';
+
+                // For Web: Handle the image differently using base64 encoding
                 if (kIsWeb) {
                   final byteData = await image.readAsBytes();
                   final fileName = '${DateTime.now().millisecondsSinceEpoch}_${image.name}';
@@ -91,7 +100,10 @@ class HomeScreen extends StatelessWidget {
                       .uploadBinary(fileName, byteData);
 
                   if (response.error == null) {
-                    Provider.of<PointsProvider>(context, listen: false).addPoints(points);
+                    // Add points and then fetch updated points
+                    Provider.of<PointsProvider>(context, listen: false).addPoints(userId, points);
+                    await Provider.of<PointsProvider>(context, listen: false).fetchTotalPoints(userId);
+
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('Upload successful!')),
                     );
@@ -112,7 +124,10 @@ class HomeScreen extends StatelessWidget {
                       .upload(fileName, file);
 
                   if (response.error == null) {
-                    Provider.of<PointsProvider>(context, listen: false).addPoints(points);
+                    // Add points and then fetch updated points
+                    Provider.of<PointsProvider>(context, listen: false).addPoints(userId, points);
+                    await Provider.of<PointsProvider>(context, listen: false).fetchTotalPoints(userId);
+
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('Upload successful!')),
                     );
@@ -145,17 +160,6 @@ class HomeScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Eco Tasks'),
         backgroundColor: Colors.teal[700],
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.star), // Changed from points to star
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => PointsScreen()),
-              );
-            },
-          ),
-        ],
       ),
       body: ListView.builder(
         itemCount: tasks.length,
@@ -167,6 +171,26 @@ class HomeScreen extends StatelessWidget {
             taskType: task['taskType'],
             onTakePhoto: () => _takePhoto(context, task['taskType'], task['points']),
           );
+        },
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        items: [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.star),
+            label: 'Points',
+          ),
+        ],
+        onTap: (index) {
+          if (index == 1) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => PointsScreen()),
+            );
+          }
         },
       ),
     );
