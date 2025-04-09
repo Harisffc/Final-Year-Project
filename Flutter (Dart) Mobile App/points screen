@@ -1,0 +1,26 @@
+// points_screen.dart
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'points_provider.dart'; // Ensure this points to your PointsProvider
+
+class PointsScreen extends StatelessWidget {
+  const PointsScreen({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final totalPoints = Provider.of<PointsProvider>(context).totalPoints;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Your Points'),
+        backgroundColor: Colors.teal[700],
+      ),
+      body: Center(
+        child: Text(
+          'Total Points: $totalPoints',
+          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+  }
+}
