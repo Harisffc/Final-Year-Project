@@ -7,7 +7,7 @@ class PointsProvider extends ChangeNotifier {
 
   int get totalPoints => _totalPoints;
 
-  // Fetch the total points from Supabase
+  // Fetch total points from Supabase for the current user
   Future<void> fetchTotalPoints(String userId) async {
     final response = await _supabase
         .from('points')
@@ -18,30 +18,58 @@ class PointsProvider extends ChangeNotifier {
 
     if (response.error == null && response.data != null) {
       _totalPoints = response.data['total_points'];
-      notifyListeners(); // Notify listeners to update UI
+      notifyListeners();
     } else {
-      print("Error fetching points: ${response.error?.message}");
+      // If no points exist, initialize the points
+      await _supabase
+          .from('points')
+          .insert({'user_id': userId, 'total_points': 0})
+          .execute();
+
+      _totalPoints = 0; // Initialize points to 0 for new user
+      notifyListeners();
     }
   }
 
-  // Update points in Supabase (requires both userId and points)
+  // Add points to the user when they complete a task
   Future<void> addPoints(String userId, int points) async {
+    // Check if user exists and update points, or insert a new user if needed
     final response = await _supabase
         .from('points')
-        .upsert({'user_id': userId, 'total_points': _totalPoints + points})
+        .select('total_points')
+        .eq('user_id', userId)
+        .single()
         .execute();
 
-    if (response.error == null) {
-      _totalPoints += points;
-      notifyListeners(); // Notify listeners to update UI
-    } else {
-      print("Error adding points: ${response.error?.message}");
-    }
-  }
+    if (response.error == null && response.data != null) {
+      int currentPoints = response.data['total_points'];
+      int newTotalPoints = currentPoints + points;
 
-  // Reset points locally
-  void resetPoints() {
-    _totalPoints = 0;
-    notifyListeners(); // Notify listeners to update UI
+      // Update points
+      final updateResponse = await _supabase
+          .from('points')
+          .upsert({'user_id': userId, 'total_points': newTotalPoints})
+          .execute();
+
+      if (updateResponse.error == null) {
+        _totalPoints = newTotalPoints;
+        notifyListeners();
+      } else {
+        print("Error updating points: ${updateResponse.error?.message}");
+      }
+    } else {
+      // If no points exist for this user, insert a new record
+      final insertResponse = await _supabase
+          .from('points')
+          .insert({'user_id': userId, 'total_points': points})
+          .execute();
+
+      if (insertResponse.error == null) {
+        _totalPoints = points;
+        notifyListeners();
+      } else {
+        print("Error inserting points: ${insertResponse.error?.message}");
+      }
+    }
   }
 }
