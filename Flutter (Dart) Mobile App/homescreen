@@ -1,0 +1,163 @@
+import 'package:flutter/material.dart';
+
+class HomeScreen extends StatelessWidget {
+  const HomeScreen({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('SustainiaPlay Tasks'),
+        backgroundColor: Colors.teal[700],
+      ),
+      body: const EcoTasksScreen(),
+      bottomNavigationBar: BottomNavigationBar(
+        backgroundColor: Colors.teal[800],
+        selectedItemColor: Colors.yellowAccent,
+        unselectedItemColor: Colors.white70,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.task), label: 'Tasks'),
+          BottomNavigationBarItem(icon: Icon(Icons.leaderboard), label: 'Leaderboard'),
+          BottomNavigationBarItem(icon: Icon(Icons.eco), label: 'Impact'),
+        ],
+      ),
+    );
+  }
+}
+
+class EcoTasksScreen extends StatelessWidget {
+  const EcoTasksScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: const Color(0xFF004D40),
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const SizedBox(height: 16),
+          const Text(
+            'EcoTasks',
+            style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white),
+          ),
+          const SizedBox(height: 8),
+          const Text('Complete these activities to earn points!', style: TextStyle(color: Colors.white70)),
+          const SizedBox(height: 24),
+          const TaskCard(
+            icon: Icons.restaurant,
+            title: 'Donate Food',
+            description: 'Donate unused food to reduce waste and help those in need',
+            points: 50,
+          ),
+          const TaskCard(
+            icon: Icons.shopping_bag,
+            title: 'Reusable Bag',
+            description: 'Use a reusable shopping bag instead of plastic bags',
+            points: 30,
+          ),
+          const TaskCard(
+            icon: Icons.directions_bike,
+            title: 'Green Transport',
+            description: 'Travel by bicycle or walking to reduce carbon emissions',
+            points: 100,
+            progress: 0.4,
+          ),
+          const TaskCard(
+            icon: Icons.lightbulb,
+            title: 'Energy Saving',
+            description: 'Turn off lights and electronics when not in use',
+            points: 40,
+          ),
+          const TaskCard(
+            icon: Icons.water_drop,
+            title: 'Water Conservation',
+            description: 'Use water wisely to prevent unnecessary waste',
+            points: 35,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class TaskCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String description;
+  final int points;
+  final double? progress;
+
+  const TaskCard({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.points,
+    this.progress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: const Color(0xFF00695C),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: Colors.white),
+                const SizedBox(width: 8),
+                Text(title, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.yellowAccent,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text('$points pts', style: const TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(description, style: const TextStyle(color: Colors.white70)),
+            const SizedBox(height: 12),
+            if (progress != null)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('In progress ${(progress! * 100).toInt()}%', style: const TextStyle(color: Colors.white)),
+                  const SizedBox(height: 4),
+                  LinearProgressIndicator(
+                    value: progress,
+                    color: Colors.yellowAccent,
+                    backgroundColor: Colors.white24,
+                  ),
+                ],
+              )
+            else
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.yellowAccent,
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  icon: const Icon(Icons.camera_alt),
+                  label: const Text('Take Photo'),
+                  onPressed: () {
+                    // TODO: Add image capture/upload logic here
+                  },
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
