@@ -1,0 +1,159 @@
+import 'package:flutter/material.dart';
+import 'sign_in.dart'; // Import the SignInScreen
+
+class OnboardingScreen extends StatefulWidget {
+  const OnboardingScreen({Key? key}) : super(key: key);
+
+  @override
+  _OnboardingScreenState createState() => _OnboardingScreenState();
+}
+
+class _OnboardingScreenState extends State<OnboardingScreen> {
+  final List<OnboardingPage> pages = [
+    OnboardingPage(
+      title: 'Welcome to SustainiaPlay',
+      description: 'Join us in promoting sustainability through fun and engaging activities.',
+      image: 'assets/onboarding1.png',
+    ),
+    OnboardingPage(
+      title: 'Gamify Your Impact',
+      description: 'Earn points and rewards by completing sustainable tasks and challenges.',
+      image: 'assets/onboarding2.png',
+    ),
+    OnboardingPage(
+      title: 'Join the Community',
+      description: 'Connect with like-minded individuals and share your sustainability journey.',
+      image: 'assets/onboarding3.png',
+    ),
+  ];
+
+  int currentPageIndex = 0; // Track the current page index
+
+  void goToNextPage() {
+    if (currentPageIndex < pages.length - 1) {
+      setState(() {
+        currentPageIndex++;
+      });
+    } else {
+      // Navigate to the SignInScreen after the last onboarding page
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => SignInScreen()),
+      );
+    }
+  }
+
+  void goToPreviousPage() {
+    if (currentPageIndex > 0) {
+      setState(() {
+        currentPageIndex--;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: OnboardingContent(
+        page: pages[currentPageIndex],
+        onNext: goToNextPage, // Pass the goToNextPage function to the OnboardingContent
+        onPrevious: goToPreviousPage, // Pass the goToPreviousPage function to the OnboardingContent
+        isFirstPage: currentPageIndex == 0, // Check if it's the first page
+        isLastPage: currentPageIndex == pages.length - 1, // Check if it's the last page
+      ),
+    );
+  }
+}
+
+class OnboardingPage {
+  final String title;
+  final String description;
+  final String image;
+
+  const OnboardingPage({required this.title, required this.description, required this.image});
+}
+
+class OnboardingContent extends StatelessWidget {
+  final OnboardingPage page;
+  final VoidCallback onNext; // Callback for the next button
+  final VoidCallback onPrevious; // Callback for the previous button
+  final bool isFirstPage; // Check if it's the first page
+  final bool isLastPage; // Check if it's the last page
+
+  const OnboardingContent({
+    Key? key,
+    required this.page,
+    required this.onNext,
+    required this.onPrevious,
+    required this.isFirstPage,
+    required this.isLastPage,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        // Full-screen image
+        Image.asset(
+          page.image,
+          fit: BoxFit.cover, // Make the image cover the full screen
+          width: double.infinity,
+          height: double.infinity,
+        ),
+        // Overlay for content
+        Container(
+          color: Colors.black54, // Optional: Add a semi-transparent overlay for better text visibility
+        ),
+        Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(height: 20),
+            // Add GIF logo at the top
+            Image.asset(
+              'assets/logo.gif', // Path to your GIF logo
+              height: 100, // Adjust height as needed
+            ),
+            SizedBox(height: 20),
+            Text(
+              page.title,
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                page.description,
+                style: TextStyle(fontSize: 16, color: Colors.white),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Previous button
+                if (!isFirstPage) // Show only if not on the first page
+                  TextButton(
+                    onPressed: onPrevious, // Call the onPrevious callback when pressed
+                    child: Text(
+                      'Previous',
+                      style: TextStyle(color: Colors.white), // Transparent button text
+                    ),
+                  ),
+                // Next button
+                TextButton(
+                  onPressed: onNext, // Call the onNext callback when pressed
+                  child: Text(
+                    isLastPage ? 'Finish' : 'Next', // Change text on last page
+                    style: TextStyle(color: Colors.white), // Transparent button text
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
