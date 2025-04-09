@@ -9,7 +9,6 @@ import 'package:supabase_flutter/supabase_flutter.dart' as supabase; // Alias fo
 import 'points_provider.dart'; // Import the PointsProvider
 import 'points_screen.dart'; // Ensure PointsScreen is imported
 
-// HomeScreen displaying tasks and taking photos
 class HomeScreen extends StatelessWidget {
   final List<CameraDescription> cameras;
 
@@ -17,10 +16,10 @@ class HomeScreen extends StatelessWidget {
 
   final List<Map<String, dynamic>> tasks = [
     {'title': 'Donate Food', 'points': 50, 'taskType': 'food'},
-    {'title': 'Reusable Bag', 'points': 30, 'taskType': 'bags'},
-    {'title': 'Eco-Friendly Travel', 'points': 40, 'taskType': 'transport'},
-    {'title': 'Save Water', 'points': 35, 'taskType': 'water'},
-    {'title': 'Save Energy', 'points': 45, 'taskType': 'energy'},
+    {'title': 'Reusable Bag', 'points': 50, 'taskType': 'bags'},
+    {'title': 'Eco-Friendly Travel', 'points': 50, 'taskType': 'transport'},
+    {'title': 'Save Water', 'points': 50, 'taskType': 'water'},
+    {'title': 'Save Energy', 'points': 50, 'taskType': 'energy'},
   ];
 
   Future<void> _takePhoto(BuildContext context, String taskType, int points) async {
@@ -35,22 +34,23 @@ class HomeScreen extends StatelessWidget {
   void _askQuestion(BuildContext context, String taskType, int points, XFile image) async {
     final controller = TextEditingController();
     String question = '';
+    double impact = 0.0; // To store calculated impact (CO2 saved)
 
     switch (taskType) {
       case 'food':
-        question = 'Almost how much food have you donated (kg)?';
+        question = 'How much food have you donated (kg)?';
         break;
       case 'bags':
-        question = 'Almost how much plastic have you avoided (bags)?';
+        question = 'How much plastic have you avoided (bags)?';
         break;
       case 'transport':
-        question = 'Almost how much CO2 have you reduced (kg)?';
+        question = 'How much have you traveled by bicycle (mile)?';
         break;
       case 'water':
-        question = 'Almost how much water have you saved (liters)?';
+        question = 'How much water have you saved (liters)?';
         break;
       case 'energy':
-        question = 'Almost how much energy have you saved (kWh)?';
+        question = 'How much energy have you saved (kWh)?';
         break;
     }
 
@@ -68,9 +68,8 @@ class HomeScreen extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Conditionally display image based on platform
               kIsWeb
-                  ? Image.memory(imageBytes!)  // For Web, use Image.memory (base64 encoding)
+                  ? Image.memory(imageBytes!) // For Web, use Image.memory (base64 encoding)
                   : Image.file(File(image.path)), // For mobile, use Image.file
 
               const SizedBox(height: 12),
@@ -88,52 +87,56 @@ class HomeScreen extends StatelessWidget {
           TextButton(
             onPressed: () async {
               if (controller.text.isNotEmpty) {
-                // Get the current user ID (replace with actual logic)
                 final userId = supabase.Supabase.instance.client.auth.currentUser?.id ?? 'unknown_user';
+                final double inputAmount = double.parse(controller.text);
 
-                // For Web: Handle the image differently using base64 encoding
+                // Calculate the CO2 impact based on the task type
+                impact = _calculateImpact(inputAmount, taskType);
+
+                // Handle image upload depending on platform (web or mobile)
                 if (kIsWeb) {
                   final byteData = await image.readAsBytes();
                   final fileName = '${DateTime.now().millisecondsSinceEpoch}_${image.name}';
                   final response = await supabase.Supabase.instance.client.storage
-                      .from('photos') // Your bucket name
+                      .from('photos')
                       .uploadBinary(fileName, byteData);
 
                   if (response.error == null) {
                     // Add points and then fetch updated points
-                    Provider.of<PointsProvider>(context, listen: false).addPoints(userId, points);
+                    await Provider.of<PointsProvider>(context, listen: false).addPoints(userId, points);
                     await Provider.of<PointsProvider>(context, listen: false).fetchTotalPoints(userId);
 
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('Upload successful!')),
                     );
-
-                    // Close the dialog after the upload is successful
                     Navigator.pop(context);
+
+                    // Display the impact after task completion
+                    _showImpactDialog(context, impact);
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('Error uploading photo: ${response.error?.message}')),
                     );
                   }
                 } else {
-                  // For mobile: Continue with the standard image upload
                   final file = File(image.path);
                   final fileName = '${DateTime.now().millisecondsSinceEpoch}_${file.uri.pathSegments.last}';
                   final response = await supabase.Supabase.instance.client.storage
-                      .from('photos') // Your bucket name
+                      .from('photos')
                       .upload(fileName, file);
 
                   if (response.error == null) {
                     // Add points and then fetch updated points
-                    Provider.of<PointsProvider>(context, listen: false).addPoints(userId, points);
+                    await Provider.of<PointsProvider>(context, listen: false).addPoints(userId, points);
                     await Provider.of<PointsProvider>(context, listen: false).fetchTotalPoints(userId);
 
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('Upload successful!')),
                     );
-
-                    // Close the dialog after the upload is successful
                     Navigator.pop(context);
+
+                    // Display the impact after task completion
+                    _showImpactDialog(context, impact);
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('Error uploading photo: ${response.error?.message}')),
@@ -141,12 +144,56 @@ class HomeScreen extends StatelessWidget {
                   }
                 }
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please enter a valid amount.')),
-                );
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a valid amount.')));
               }
             },
             child: const Text('Submit'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Method to calculate impact based on the task type and user input
+  double _calculateImpact(double amount, String taskType) {
+    double impact = 0.0;
+
+    switch (taskType) {
+      case 'food':
+        impact = amount * 0.03; // CO2 saved for donated food (example: 30g per kg of food)
+        break;
+      case 'bags':
+        impact = amount * 0.03; // CO2 saved per plastic bag avoided
+        break;
+      case 'transport':
+        impact = amount * 0.411; // CO2 saved for eco-friendly travel (per mile)
+        break;
+      case 'water':
+        impact = amount * 0.002; // CO2 saved by saving water (per liter)
+        break;
+      case 'energy':
+        impact = amount * 0.4; // CO2 saved by saving energy (per kWh)
+        break;
+    }
+
+    return impact;
+  }
+
+  // Method to show the impact to the user in a dialog
+  void _showImpactDialog(BuildContext context, double impact) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Congratulations! 🌍'),
+        content: Text(
+            'You saved $impact kg of CO₂! \n\nYour efforts are making a real difference!'
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: const Text('Close'),
           ),
         ],
       ),
