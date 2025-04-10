@@ -1,0 +1,67 @@
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:image_picker/image_picker.dart';
+
+class ImageVerificationService {
+  final String apiKey = 'AIzaSyAr3Y_MXEnPHGBwMZsrr8YafY0V-g4Sluw'; // Replace with your actual API key
+
+  Future<bool> verifyImage(XFile image) async {
+    try {
+      // Convert the image to base64
+      final bytes = await image.readAsBytes();
+      final base64Image = base64Encode(Uint8List.fromList(bytes));
+
+      // Google Vision API URL
+      final url = 'https://vision.googleapis.com/v1/images:annotate?key=$apiKey';
+
+      // Request body to send the image to Google Cloud Vision API for label detection
+      final requestBody = jsonEncode({
+        "requests": [
+          {
+            "image": {
+              "content": base64Image
+            },
+            "features": [
+              {
+                "type": "LABEL_DETECTION",  // You can change the feature to another one if needed (e.g., TEXT_DETECTION, OBJECT_LOCALIZATION)
+                "maxResults": 5  // Limit the results to 5 labels
+              }
+            ]
+          }
+        ]
+      });
+
+      // Send the request to Google Vision API
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: requestBody,
+      );
+
+      // If the request is successful (status code 200)
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final labels = data['responses'][0]['labelAnnotations'];
+
+        // Check if the labels are not empty
+        if (labels != null && labels.isNotEmpty) {
+          final label = labels[0]['description'];
+          print("Detected label: $label");
+
+          // Define logic to verify the image based on the label detected
+          if (label.contains("bike") || label.contains("food") || label.contains("transport")) {
+            return true; // Image is verified successfully
+          }
+        }
+      } else {
+        print('Error: ${response.statusCode}');
+      }
+    } catch (e) {
+      print("Error during image verification: $e");
+    }
+    return false; // Image verification failed
+  }
+}
