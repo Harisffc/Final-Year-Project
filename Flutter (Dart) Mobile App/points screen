@@ -1,42 +1,122 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'points_provider.dart'; // Import PointsProvider
+import 'points_provider.dart';
 
 class PointsScreen extends StatelessWidget {
-  final String userId = 'user123'; // Replace with actual user ID, potentially from Supabase Auth
+  final String userId = 'user123'; // Replace with actual user ID
+
+  // Avatar data: points threshold -> image and name
+  final Map<int, Map<String, String>> avatarThresholds = {
+    0: {'image': 'assets/avatars/avatar0.png', 'name': 'Sprout'},
+    500: {'image': 'assets/avatars/avatar1.png', 'name': 'Leafy'},
+    1000: {'image': 'assets/avatars/avatar2.png', 'name': 'Greenster'},
+    1500: {'image': 'assets/avatars/avatar3.png', 'name': 'EcoVibe'},
+    2000: {'image': 'assets/avatars/avatar4.png', 'name': 'RecycLord'},
+    2500: {'image': 'assets/avatars/avatar5.png', 'name': 'Solaris'},
+    3000: {'image': 'assets/avatars/avatar6.png', 'name': 'AquaNova'},
+    3500: {'image': 'assets/avatars/avatar7.png', 'name': 'GreenHero'},
+    4000: {'image': 'assets/avatars/avatar8.png', 'name': 'TerraNova'},
+    4500: {'image': 'assets/avatars/avatar9.png', 'name': 'NatureZen'},
+    5000: {'image': 'assets/avatars/avatar10.png', 'name': 'EcoMaster'},
+  };
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFF0C7C72), // Set the same color as sign_in.dart
+      backgroundColor: const Color(0xFF0C7C72),
       appBar: AppBar(
-        title: Text('Your Points'),
+        title: const Text('Your Points'),
         backgroundColor: Colors.teal[700],
       ),
-      body: Consumer<PointsProvider>(
-        builder: (context, pointsProvider, child) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Display the GIF logo (eco logo)
-                Image.asset(
-                  'assets/images/eco_logo.gif', // Path to your GIF logo
-                  height: 100, // Adjust the size of the GIF as needed
-                  width: 100,
-                ),
-                SizedBox(height: 20),
-
-                // Display total points
-                Text(
-                  'Total Points: ${pointsProvider.totalPoints}',
-                  style: TextStyle(fontSize: 24, color: Colors.white), // White text color
-                ),
-                SizedBox(height: 20),
-              ],
+      body: Stack(
+        children: [
+          // Background image
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/victory_sign_person.png',
+              fit: BoxFit.cover,
             ),
-          );
-        },
+          ),
+          // Foreground content
+          Consumer<PointsProvider>(  // Use PointsProvider to manage total points
+            builder: (context, pointsProvider, child) {
+              int totalPoints = pointsProvider.totalPoints;
+
+              return SingleChildScrollView(
+                child: Column(
+                  children: [
+                    const SizedBox(height: 40),
+                    Center(
+                      child: Image.asset(
+                        'assets/images/eco_logo.gif',
+                        height: 90,
+                        width: 90,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      'Total Points: $totalPoints',
+                      style: const TextStyle(fontSize: 24, color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 25),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: avatarThresholds.length,
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2, // Two avatars per row
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                          childAspectRatio: 0.9, // Taller for bigger content
+                        ),
+                        itemBuilder: (context, index) {
+                          int threshold = avatarThresholds.keys.elementAt(index);
+                          bool isUnlocked = totalPoints >= threshold;
+                          String image = avatarThresholds[threshold]!['image']!;
+                          String name = avatarThresholds[threshold]!['name']!;
+
+                          return Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.withOpacity(0.35),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Opacity(
+                                  opacity: isUnlocked ? 1.0 : 0.3,
+                                  child: Image.asset(
+                                    image,
+                                    height: 90,
+                                    width: 90,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  name,
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 40),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
