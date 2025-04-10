@@ -1,0 +1,40 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:sustainiaplay/onboarding.dart';
+import 'package:sustainiaplay/sign_in.dart';
+
+void main() {
+  testWidgets('Onboarding screen navigation works', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: OnboardingScreen(),
+      ),
+    );
+
+    // Check first page content
+    expect(find.text('Welcome to SustainiaPlay'), findsOneWidget);
+    expect(find.text('Next'), findsOneWidget);
+
+    // Tap "Next"
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+
+    // Check second page
+    expect(find.text('Gamify Your Impact'), findsOneWidget);
+
+    // Tap "Next"
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+
+    // Check third page
+    expect(find.text('Join the Community'), findsOneWidget);
+    expect(find.text('Sign in'), findsOneWidget);
+
+    // Tap "Sign in"
+    await tester.tap(find.text('Sign in'));
+    await tester.pumpAndSettle();
+
+    // Check if navigated to SignInScreen
+    expect(find.byType(SignInScreen), findsOneWidget);
+  });
+}
