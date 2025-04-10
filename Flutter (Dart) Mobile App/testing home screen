@@ -1,0 +1,112 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mockito/mockito.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
+import 'package:camera/camera.dart';  // Import camera package for CameraDescription
+import 'package:provider/provider.dart';
+import 'package:sustainiaplay/home_screen.dart';  // Import your HomeScreen widget
+import 'package:sustainiaplay/points_provider.dart';  // Import your PointsProvider
+
+// Mock classes
+class MockImagePicker extends Mock implements ImagePicker {
+  @override
+  Future<XFile?> pickImage({
+    int? imageQuality,
+    double? maxHeight,
+    double? maxWidth,
+    CameraDevice? preferredCameraDevice,
+    bool requestFullMetadata = false,
+    required ImageSource source,
+  }) {
+    return Future.value(XFile('mock_image.jpg'));
+  }
+}
+
+class MockSupabaseClient extends Mock implements supabase.SupabaseClient {}
+
+class MockCameraDescription extends Mock implements CameraDescription {
+  @override
+  String get name => 'Mock Camera';  // Simulate a camera name
+
+  @override
+  int get sensorOrientation => 90;  // Simulate sensor orientation
+}
+
+void main() {
+  setUp(() {
+    // Setup code, if needed
+  });
+
+  testWidgets('HomeScreen renders task list', (WidgetTester tester) async {
+    final mockCameras = [MockCameraDescription()];
+
+    // Build the HomeScreen widget
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChangeNotifierProvider<PointsProvider>(
+          create: (_) => PointsProvider(),
+          child: HomeScreen(cameras: mockCameras),
+        ),
+      ),
+    );
+
+    // Find all TaskCard widgets and check the count dynamically
+    expect(find.byType(TaskCard), findsNWidgets(3));  // Update to the actual number of task cards
+  });
+
+  testWidgets('Take photo dialog opens on button press', (WidgetTester tester) async {
+    final mockCameras = [MockCameraDescription()];
+    final mockImagePicker = MockImagePicker();
+
+    // Build the HomeScreen widget
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChangeNotifierProvider<PointsProvider>(
+          create: (_) => PointsProvider(),
+          child: HomeScreen(cameras: mockCameras),
+        ),
+      ),
+    );
+
+    // Find the ElevatedButton inside the TaskCard (adjust as necessary)
+    final takePhotoButton = find.byType(ElevatedButton);
+
+    // Check if the ElevatedButton exists
+    expect(takePhotoButton, findsOneWidget);
+
+    // Simulate tapping the "Take Photo" button
+    await tester.tap(takePhotoButton);
+    await tester.pumpAndSettle();
+
+    // Verify that the dialog for asking the question appears
+    expect(find.byType(AlertDialog), findsOneWidget);
+  });
+
+  testWidgets('Submit task and update points', (WidgetTester tester) async {
+    final mockCameras = [MockCameraDescription()];
+    final mockImagePicker = MockImagePicker();
+
+    // Build the HomeScreen widget
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChangeNotifierProvider<PointsProvider>(
+          create: (_) => PointsProvider(),
+          child: HomeScreen(cameras: mockCameras),
+        ),
+      ),
+    );
+
+    // Simulate the user tapping the "Take Photo" button for a task
+    await tester.tap(find.byType(ElevatedButton));
+    await tester.pumpAndSettle();
+
+    // Enter a value into the text field and submit the task
+    await tester.enterText(find.byType(TextField), '5');
+    await tester.tap(find.text('Submit'));
+    await tester.pumpAndSettle();
+
+    // Verify that the success message appears
+    expect(find.text('Upload successful!'), findsOneWidget);
+  });
+}
