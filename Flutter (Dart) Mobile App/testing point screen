@@ -1,0 +1,58 @@
+
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
+import 'package:sustainiaplay/points_screen.dart';
+import 'package:sustainiaplay/points_provider.dart';
+
+class MockPointsProvider extends ChangeNotifier implements PointsProvider {
+  int _mockPoints;
+
+  MockPointsProvider(this._mockPoints);
+
+  @override
+  int get totalPoints => _mockPoints;
+
+  @override
+  Future<void> fetchTotalPoints(String userId) async {}
+
+  @override
+  Future<void> addPoints(String userId, int points) async {
+    _mockPoints += points;
+    notifyListeners();
+  }
+}
+
+void main() {
+  testWidgets('PointsScreen displays total points and avatars', (WidgetTester tester) async {
+    final mockProvider = MockPointsProvider(1200); // unlocked first 3 avatars
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<PointsProvider>.value(
+        value: mockProvider,
+        child: MaterialApp(
+          home: PointsScreen(),
+        ),
+      ),
+    );
+
+    // Let the widget settle animations/render
+    await tester.pumpAndSettle();
+
+    // Verify AppBar title
+    expect(find.text('Your Points'), findsOneWidget);
+
+    // Verify total points text
+    expect(find.text('Total Points: 1200'), findsOneWidget);
+
+    // Verify unlocked avatars
+    expect(find.text('Sprout'), findsOneWidget);
+    expect(find.text('Leafy'), findsOneWidget);
+    expect(find.text('Greenster'), findsOneWidget);
+
+    // Locked avatars (names still present, but faded images)
+    expect(find.text('EcoVibe'), findsOneWidget);
+    expect(find.text('EcoMaster'), findsOneWidget);
+  });
+}
+
