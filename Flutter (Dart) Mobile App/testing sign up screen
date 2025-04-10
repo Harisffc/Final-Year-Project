@@ -1,0 +1,31 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:sustainiaplay/sign_up.dart';
+
+void main() {
+  testWidgets('SignUpScreen renders and validates inputs', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SignUpScreen(), // ✅ Removed `const` here
+      ),
+    );
+
+    // Verify screen elements exist
+    expect(find.text('Create Account'), findsOneWidget);
+    expect(find.text('Join us on your eco journey'), findsOneWidget);
+
+    // Fill in name, email, password, and confirm password
+    await tester.enterText(find.byType(TextField).at(0), 'Eco Tester'); // Name
+    await tester.enterText(find.byType(TextField).at(1), 'eco@example.com'); // Email
+    await tester.enterText(find.byType(TextField).at(2), 'password123'); // Password
+    await tester.enterText(find.byType(TextField).at(3), 'password321'); // Confirm Password
+
+    // Tap the Sign Up button
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Sign Up'));
+    await tester.pump(); // Start animation
+    await tester.pump(const Duration(seconds: 1)); // Allow snack bar to show
+
+    // Check if error message appears due to password mismatch
+    expect(find.text('Passwords do not match'), findsOneWidget);
+  });
+}
