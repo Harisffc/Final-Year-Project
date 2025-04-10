@@ -1,0 +1,33 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:sustainiaplay/sign_in.dart';
+import 'package:sustainiaplay/sign_up.dart';
+import 'package:sustainiaplay/home_screen.dart';
+
+void main() {
+  testWidgets('SignInScreen UI renders correctly', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(home: SignInScreen()),
+    );
+
+    // Check for presence of important text fields and button
+    expect(find.text('Welcome Back'), findsOneWidget);
+    expect(find.byType(TextField), findsNWidgets(2)); // Email & Password fields
+    expect(find.text('Sign In'), findsOneWidget);
+    expect(find.text("Don't have an account?"), findsOneWidget);
+    expect(find.text('Register'), findsOneWidget);
+  });
+
+  testWidgets('Register button navigates to SignUpScreen', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(home: SignInScreen()),
+    );
+
+    await tester.tap(find.text('Register'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SignUpScreen), findsOneWidget);
+  });
+
+
+}
