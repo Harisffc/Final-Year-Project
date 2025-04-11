@@ -38,7 +38,7 @@ class PointsScreen extends StatelessWidget {
             ),
           ),
           // Foreground content
-          Consumer<PointsProvider>(  // Use PointsProvider to manage total points
+          Consumer<PointsProvider>(
             builder: (context, pointsProvider, child) {
               int totalPoints = pointsProvider.totalPoints;
 
@@ -121,5 +121,6 @@ class PointsScreen extends StatelessWidget {
     );
   }
 }
+
 
 
