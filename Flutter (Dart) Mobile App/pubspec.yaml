@@ -1,6 +1,6 @@
 name: sustainiaplay
 description: "A new Flutter project."
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: 'none' 
 
 version: 1.0.0+1
 
@@ -11,7 +11,11 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-  supabase_flutter: ^0.2.7 # Add Supabase dependency for authentication
+  supabase_flutter: ^0.2.7  # Supabase dependency for authentication and storage
+  camera: ^0.9.4+5          # Dependency for camera functionality
+  image_picker: ^0.8.5+3    # Dependency for picking images (camera in this case)
+  provider: ^6.0.3          # To manage state for total points
+  url_launcher: ^6.2.4      # For opening product links in the shop screen
 
 dev_dependencies:
   flutter_test:
@@ -26,4 +30,41 @@ flutter:
     - assets/onboarding2.png
     - assets/onboarding3.png
     - assets/logo.gif
+    - assets/images/eco_logo.gif
+    - assets/food_image.png
+    - assets/bag_image.png
+    - assets/transport_image.png
+    - assets/water_image.png
+    - assets/energy_image.png
+    - assets/images/victory_sign_person.png
+    - assets/logo1.gif
+    - assets/avatars/avatar0.png
+    - assets/avatars/avatar1.png
+    - assets/avatars/avatar2.png
+    - assets/avatars/avatar3.png
+    - assets/avatars/avatar4.png
+    - assets/avatars/avatar5.png
+    - assets/avatars/avatar6.png
+    - assets/avatars/avatar7.png
+    - assets/avatars/avatar8.png
+    - assets/avatars/avatar9.png
+    - assets/avatars/avatar10.png
+    # New product images for shop screen
+    - assets/products/energy1.png
+    - assets/products/water1.png
+    - assets/products/water4.png
+    - assets/products/water2.png
+    - assets/products/bag2.png
+    - assets/products/bag3.png
+    - assets/products/cycle1.png
+    - assets/products/cycle2.png
+    - assets/products/recycle.png
+    - assets/products/flush.png
+
+  fonts:
+    - family: RacingSansOne
+      fonts:
+        - asset: assets/fonts/RacingSansOne-Regular.ttf
+
+
 
