@@ -1,0 +1,171 @@
+import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+class ShopScreen extends StatefulWidget {
+  @override
+  _ShopScreenState createState() => _ShopScreenState();
+}
+
+class _ShopScreenState extends State<ShopScreen> with SingleTickerProviderStateMixin {
+  final List<Map<String, String>> products = [
+    {
+      'name': 'Energy Saving Power Meter',
+      'image': 'assets/products/energy1.png',
+      'link': 'https://energenie4u.co.uk/catalogue/product/ENER007'
+    },
+    {
+      'name': 'Eco Digital Shower Meter',
+      'image': 'assets/products/water1.png',
+      'link': 'https://www.showerbob.co.uk/store/p1/aqos-digital-shower-meter.html'
+    },
+    {
+      'name': 'Eco Shower Head',
+      'image': 'assets/products/water4.png',
+      'link': 'https://www.showerbob.co.uk/store/p2/showerbob-curve-eco-shower-head.html'
+    },
+    {
+      'name': 'Save leakage water plug',
+      'image': 'assets/products/water2.png',
+      'link': 'https://www.showerbob.co.uk/store/p8/showerbob-universal-plug.html'
+    },
+    {
+      'name': 'Eco shopping bag',
+      'image': 'assets/products/bag2.png',
+      'link': 'https://eco-chic.shop/collections/lunch-bag/products/eco-chic-lightweight-foldable-lunch-bag-tree-of-life'
+    },
+    {
+      'name': 'Eco shopping bag 2',
+      'image': 'assets/products/bag3.png',
+      'link': 'https://eco-chic.shop/collections/lunch-bag/products/eco-chic-lightweight-foldable-lunch-bag-labradors'
+    },
+    {
+      'name': 'Eco-friendly cycle',
+      'image': 'assets/products/cycle1.png',
+      'link': 'https://www.nethambamboobikes.co.uk/product-page/netham'
+    },
+    {
+      'name': 'Eco adventure ride',
+      'image': 'assets/products/cycle2.png',
+      'link': 'https://bamboobicycleclub.org/collections/home-build-kits/products/road-carbon-frame-build-kit'
+    },
+    {
+      'name': 'Recycled Dog Harness',
+      'image': 'assets/products/recycle.png',
+      'link': 'https://eco-chic.shop/collections/pet-harnesses/products/eco-chic-recycled-dog-harness-highland-cow-teal'
+    },
+    {
+      'name': 'Save Flush',
+      'image': 'assets/products/flush.png',
+      'link': 'https://www.dry-planet.com/products'
+    },
+  ];
+
+  late AnimationController _controller;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: Duration(milliseconds: 800));
+    _fadeAnimation = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _launchURL(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0C7C72),
+      appBar: AppBar(
+        title: const Text('Eco Shop'),
+        backgroundColor: Colors.teal[700],
+      ),
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: GridView.builder(
+          padding: const EdgeInsets.all(16),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            mainAxisSpacing: 16,
+            crossAxisSpacing: 16,
+            childAspectRatio: 0.75,
+          ),
+          itemCount: products.length,
+          itemBuilder: (context, index) {
+            final product = products[index];
+            return HoverCard(
+              child: Card(
+                color: Colors.grey.withOpacity(0.3), // Light grey transparent
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+                        child: Image.asset(product['image']!, fit: BoxFit.cover),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(product['name']!, style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.yellow[700], // Yellow button
+                        foregroundColor: Colors.black,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                      ),
+                      onPressed: () => _launchURL(product['link']!),
+                      child: const Text("Buy Now"),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class HoverCard extends StatefulWidget {
+  final Widget child;
+  const HoverCard({required this.child});
+
+  @override
+  _HoverCardState createState() => _HoverCardState();
+}
+
+class _HoverCardState extends State<HoverCard> {
+  bool _hovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isWeb = Theme.of(context).platform == TargetPlatform.fuchsia || Theme.of(context).platform == TargetPlatform.macOS;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovering = true),
+      onExit: (_) => setState(() => _hovering = false),
+      child: AnimatedScale(
+        scale: _hovering && isWeb ? 1.03 : 1.0,
+        duration: Duration(milliseconds: 200),
+        child: widget.child,
+      ),
+    );
+  }
+}
